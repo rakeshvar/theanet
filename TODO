@@ -1,0 +1,10 @@
+TODO
+----
+
+1) Test Deformer over multiple runs
+
+2) Add documentation for prms_files
+
+3) Create unit_test
+
+4) Test initialization from .pkl file
