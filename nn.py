@@ -198,7 +198,8 @@ def do_test():
 wd = ht = layers[0][1]['img_sz']
 
 ############################################ Training Loop
-import sharedmem
+if (tr_prms['DEFORM'] == 'parallel'):
+    import sharedmem
 
 deform_time, train_time, test_time = 0, 0, 0
 if not 'DFM_PRMS' in tr_prms:
