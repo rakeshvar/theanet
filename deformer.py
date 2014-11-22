@@ -112,6 +112,17 @@ if __name__ == '__main__':
         with contextlib.closing(bz2.BZ2File(path2data, 'rb')) as f:
             return np.array(json.load(f))
 
+    def pprint(x):
+        for r in x:
+            for val in r:
+                if val == 0 :          print '#',
+                elif val < .25 :       print '@',
+                elif val < .5 :        print '0',
+                elif val < .75 :       print 'o',
+                elif val < 1.0 :       print '.',
+                else:                  print ' ',
+            print
+
     def test_one(img_name, img, scale, sigma, cval=255):
         img2, trans = transform(img, scale, sigma, ret_trans=True, cval=cval)
         tx, ty = trans
@@ -129,27 +140,35 @@ if __name__ == '__main__':
             pass
 
     ext = file_name.split('.')[-1]
+    
     if ext != 'bz2':
         main_img = imread(file_name, mode="L")
         img_name = file_name.replace(
             '.' + ext, '_{}_{}.{}'.format(scale, sigma, ext))
         test_one(img_name, main_img, scale, sigma)
+    
     else:
-        main_imgs = read_json_bz2(file_name).astype('uint8') * 255
+        import sharedmem
+        main_imgs = read_json_bz2(file_name)
+        main_imgs = main_imgs.astype('float')
+        print main_imgs.dtype
+        shrd_imgs = sharedmem.copy(main_imgs)
         wd = ht = int(main_imgs.shape[1] ** .5)
 
         batch_sz = 100
         h = hpy()
-        deformer = Deformer(main_imgs, batch_sz, (ht, wd), scale, sigma, 255)
+        deformer = Deformer(shrd_imgs, batch_sz, (ht, wd), scale, sigma, 1)
         print deformer
-        for img_batch, ibatch in deformer:
-            #print 'Imgs : ', ibatch * batch_sz, (ibatch+1 )* batch_sz
+        for ibatch in deformer:
+            print 'Processing Imgs : ', ibatch * batch_sz, '-', (ibatch+1 )* batch_sz,
+            print shrd_imgs[ibatch*batch_sz].max(), shrd_imgs[ibatch*batch_sz].min()
             for i in range(batch_sz):
                 iimg = ibatch * batch_sz + i
                 img_name = 'tmp/' + file_name.replace(
                                         '.'+ext, '_{}.{}'.format(iimg, 'tif'))
                 composite = np.vstack((main_imgs[iimg].reshape(ht, wd),
-                                       img_batch[i].reshape(ht, wd)))
-                im.fromarray(composite).save(img_name)
+                                       shrd_imgs[iimg].reshape(ht, wd)))
+                pprint(composite)
+                im.fromarray((255*composite).astype('uint8')).save(img_name)
                 break
         print h.heap()

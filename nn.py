@@ -77,7 +77,7 @@ else:
 
 ## Init SEED
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
-    tr_prms['SEED'] = np.random.randint(0, 1e7)
+    tr_prms['SEED'] = np.random.randint(0, 1e6)
 
 if len(sys.argv) > 4 and sys.argv[4] is '1':
     print("Printing output to {}.txt".format(tr_prms['SEED']))

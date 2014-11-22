@@ -8,3 +8,8 @@ TODO
 3) Create unit_test
 
 4) Test initialization from .pkl file
+
+5) Reformat input images to 2D (as opposed to raster)
+
+6) Add support for multi-map images
+

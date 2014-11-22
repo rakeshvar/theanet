@@ -2,7 +2,7 @@ layers = [
         ('InputLayer', {
             'max_perturb'   :4,
             'img_sz'        :68,
-            'pflip'         :.05,
+            'pflip'         :0,
             'batch_sz'      :20,
             'num_maps'      :1,
             }),
@@ -48,13 +48,13 @@ training_params = {
     'EPOCHS_TO_TEST' : 4,
     'TEST_SAMP_SZ': 5000,
     'DEFORM'    : 'parallel',
-    'DFM_PRMS' : {'scale' : 64, 'sigma' : 8, 'cval'  : 0, 'ncpus' : 1},
+    'DFM_PRMS' : {'scale' : 64, 'sigma' : 8, 'cval'  : 1, 'ncpus' : 4},
 
     'MOMENTUM' : .95,
     'INIT_LEARNING_RATE': .1,
     'EPOCHS_TO_HALF_RATE':  1,
-    'LAMBDA1': 0.0001,
-    'LAMBDA2': 0.0,
+    'LAMBDA1': 0.0,
+    'LAMBDA2': 0.001,
     'MAXNORM': 4,
 }
 
