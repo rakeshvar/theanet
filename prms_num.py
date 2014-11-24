@@ -1,10 +1,11 @@
 layers = [
-		('InputLayer', {
-			'max_perturb'	:0,
+		('DeformLayer', {
+			'translation'	:4,
 			'img_sz'		:32,
-			'pflip'			:.1,
-			'batch_sz'		:20,
-			'num_maps'		:1,
+            'zoom'          :1.1,
+            'magnitude'     :12,
+            'sigma'         :4,
+            'pflip'         :1./32,
 			}),
 		('ConvPoolLayer', {
 			'num_maps' 		:6,
@@ -23,12 +24,13 @@ layers = [
 ]
 
 training_params = {
-	'NUM_EPOCHS' : 21,
+    'BATCH_SZ'	 :20,
+	'NUM_EPOCHS' : 41,
 	'TRAIN_ON_FRACTION' : .75,
 	'EPOCHS_TO_TEST' : 4,
 	'TEST_SAMP_SZ': 1000,
-    'DEFORM'    : 'parallel',
-    'DFM_PRMS' : {'scale' : 32, 'sigma' : 4, 'cval'  : 0,},
+    'DEFORM'    : 'none',
+    'DFM_PRMS' : {},
 
 	'MOMENTUM' : .9,
 	'SEED'	: None,

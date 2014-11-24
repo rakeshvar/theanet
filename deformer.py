@@ -133,11 +133,8 @@ if __name__ == '__main__':
             tx.min(), tx.max(), ty.min(), ty.max())
         im.fromarray(np.vstack((img, img2))).save(img_name)
 
-        try:
-            plt.quiver(tx, ty)
-            plt.imshow(np.hstack((img, img2)))
-        except ImportError:
-            pass
+        plt.quiver(tx, ty)
+        plt.imshow(np.hstack((img, img2)))
 
     ext = file_name.split('.')[-1]
     

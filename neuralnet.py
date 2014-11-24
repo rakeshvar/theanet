@@ -1,14 +1,16 @@
 from __future__ import print_function
 import numpy as np
 import theano
-import theano.tensor        as T
+import theano.tensor as T
+
 from   theano.tensor.signal import downsample
-from   theano.tensor.nnet import conv
+import theano.tensor.nnet.conv as nnconv
+import theano.tensor.signal.conv as sigconv
 
 # ##############################################################################
 #   A bunch of Helper Functions
 ###############################################################################
-
+float_x = theano.config.floatX
 
 def is_shared_var(x):
     """
@@ -34,10 +36,10 @@ def init_wts(wts, rand_gen, size_w, size_b, fan_in, fan_out, actvn):
         w_bound = np.sqrt(6. / (fan_in + fan_out))
         w_values = np.asarray(
             rand_gen.uniform(low=-w_bound, high=w_bound, size=size_w),
-            dtype=theano.config.floatX)
-        b_values = np.zeros(size_b, dtype=theano.config.floatX)
+            dtype=float_x)
+        b_values = np.zeros(size_b, dtype=float_x)
 
-        if actvn == 'sigmoid': w_values *= 4
+        if actvn == 'sigmoid':             w_values *= 4
         if actvn in ('relu', 'softplus'):  b_values += 1
 
     elif type(wts[0]) is np.ndarray:
@@ -133,23 +135,23 @@ class InputLayer(Layer):
 
         if pflip or max_perturb:
             if rand_gen:
-                shrd_rnd_strm = T.shared_randomstreams.RandomStreams(rand_gen.randint(1e7))
+                srs = T.shared_randomstreams.RandomStreams(rand_gen.randint(1e7))
             else:
-                shrd_rnd_strm = T.shared_randomstreams.RandomStreams()
+                srs = T.shared_randomstreams.RandomStreams()
 
         if pflip == 0:
             self.noised_inpt = inpt
         else:
-            mask = shrd_rnd_strm.binomial(n=1, p=pflip, size=inpt.shape)
-            self.noised_inpt = T.cast(T.cast(inpt, 'int32') ^ mask, theano.config.floatX)
+            mask = srs.binomial(n=1, p=pflip, size=inpt.shape)
+            self.noised_inpt = T.cast(T.cast(inpt, 'int32') ^ mask, float_x)
 
         out_sz = img_sz - max_perturb
         if max_perturb == 0:
             self.output = self.noised_inpt
         else:
             assert img_sz and batch_sz
-            pert_x = shrd_rnd_strm.random_integers(low=0, high=max_perturb)
-            pert_y = shrd_rnd_strm.random_integers(low=0, high=max_perturb)
+            pert_x = srs.random_integers(low=0, high=max_perturb)
+            pert_y = srs.random_integers(low=0, high=max_perturb)
             self.output = perturb(self.noised_inpt, batch_sz, img_sz, out_sz,
                                   pert_x, pert_y)
 
@@ -173,6 +175,75 @@ class InputLayer(Layer):
         return test_version
 
 
+class DeformLayer(Layer):
+    def __init__(self, inpt, img_sz, translation, zoom, magnitude, sigma, pflip):
+        self.inpt = inpt
+        self.img_sz = img_sz
+        self.translation = translation
+        self.zoom = zoom
+        self.magnitude = magnitude
+        self.sigma = sigma
+
+        self.out_sz = img_sz
+        self.num_maps = 1
+        self.params = []
+        self.representation = \
+            'Elastic\tMaps:{:2d}\tSize:{:2d}\tTranslation%:{:}\tZoom:{}\tMag:{:2d}\tSig:{:2d}'. \
+                format(self.num_maps, img_sz, translation, zoom, magnitude, sigma)
+
+        assert zoom > 0
+        if magnitude+translation+pflip == 0 and zoom==1:
+            self.output = inpt
+            return
+
+        h = w = img_sz
+
+        # Build a gaussian filter
+        var = sigma ** 2
+        filt = np.array([[np.exp(-.5 * (i * i + j * j) / var)
+                          for i in range(-sigma, sigma+1)]
+                         for j in range(-sigma, sigma+1)], dtype=float_x)
+        filt /= 2 * np.pi * var
+
+        # Build a transition grid as a translation + elastic distortion
+        srs = T.shared_randomstreams.RandomStreams()
+        trans = magnitude * srs.normal((2, h, w))
+        trans += translation * srs.uniform((2, 1, 1), -1)
+        trans = sigconv.conv2d(trans, filt, (2, h, w), filt.shape, 'full')
+        trans = trans[:, sigma:h + sigma, sigma:w + sigma]
+        trans += np.indices((h, w))
+
+        # Now zoom it
+        halves = np.array((h//2, w//2)).reshape((2, 1, 1))
+        zoomer = T.exp(np.log(zoom) * srs.uniform((2, 1, 1), -1))
+        trans -= halves
+        trans *= zoomer
+        trans += halves
+
+        # Clip the mapping to valid range and linearly interpolate
+        transy = T.clip(trans[0], 0, h-1-.001)
+        transx = T.clip(trans[1], 0, w-1-.001)
+        topp = T.cast(transy, 'int32')
+        left = T.cast(transx, 'int32')
+        fraction_y = T.cast(transy - topp, float_x)
+        fraction_x = T.cast(transx - left, float_x)
+        self.trans = trans
+
+        output = inpt[:, topp, left] * (1 - fraction_y) * (1 - fraction_x) + \
+                 inpt[:, topp, left + 1] * (1 - fraction_y) * (fraction_x) + \
+                 inpt[:, topp + 1, left] * (fraction_y) * (1 - fraction_x) + \
+                 inpt[:, topp + 1, left + 1] * (fraction_y) * (fraction_x)
+
+        # Now add some noise
+        mask = srs.binomial(n=1, p=pflip, size=inpt.shape, dtype=float_x)
+        self.output = (1-output) * mask + output * (1-mask)
+
+
+    def TestVersion(self, te_inpt):
+        return DeformLayer(te_inpt, self.img_sz, 0, 1, 0, 0, 0)
+
+
+
 ############################### ConvPool Layer ################################
 
 class ConvPoolLayer(Layer):
@@ -192,7 +263,7 @@ class ConvPoolLayer(Layer):
                                   fan_in, fan_out, actvn)
 
         # Add ConvPool Operation to the graph
-        conv_out = conv.conv2d(inpt, self.W, image_shape, filter_shape,
+        conv_out = nnconv.conv2d(inpt, self.W, image_shape, filter_shape,
                                subsample=(stride, stride))
         conv_pool = downsample.max_pool_2d(conv_out, (pool_sz, pool_sz),
                                            ignore_border=True)
@@ -227,7 +298,7 @@ def drop_output(output, pdrop, rand_gen):
         shrd_rnd_strm = T.shared_randomstreams.RandomStreams(rand_gen.randint(1e7))
 
     mask = shrd_rnd_strm.binomial(n=1, p=1 - pdrop, size=output.shape)
-    dropped_output = output * T.cast(mask, theano.config.floatX)
+    dropped_output = output * T.cast(mask, float_x)
     return dropped_output
 
 
@@ -329,7 +400,7 @@ class CenteredOutLayer(HiddenLayer, OutputLayer):
                 centers_vals = rand_gen.binomial(n=1, p=.5, size=(n_classes, n_features))
             elif kind == 'RBF':
                 centers_vals = rand_gen.uniform(low=0, high=1, size=(n_classes, n_features))
-            centers = np.asarray(centers_vals, dtype=theano.config.floatX)
+            centers = np.asarray(centers_vals, dtype=float_x)
 
         if is_shared_var(centers):
             self.centers = centers
@@ -397,19 +468,22 @@ class NeuralNet():
 
         # Symbolic variables for the data
         index = T.lscalar()
-        x = T.matrix('x')
-        test_x = T.matrix('test_x')
+        x = T.tensor3('x')
+        test_x = T.tensor3('test_x')
         y = T.ivector('y')
 
         tr_layers = []
         te_layers = []
 
         # Input Layer
-        assert layers[0][0] == 'InputLayer'
-        batch_sz = layers[0][1]['batch_sz']
+        assert layers[0][0] in ('InputLayer', 'DeformLayer')
+        batch_sz = training_params['BATCH_SZ']
 
         ilayer = 0
-        tr_layers.append(InputLayer(x, **layers[0][1]))
+        if layers[0][0] == 'InputLayer':
+            tr_layers.append(InputLayer(x, **layers[0][1]))
+        elif layers[0][0] == 'DeformLayer':
+            tr_layers.append(DeformLayer(x, **layers[0][1]))
         te_layers.append(tr_layers[0].TestVersion(test_x))
         ilayer += 1
 
@@ -420,7 +494,8 @@ class NeuralNet():
             tr_inpt = prev_tr_layer.output
             te_inpt = prev_te_layer.output
 
-            if isinstance(prev_tr_layer, InputLayer):
+            if isinstance(prev_tr_layer, InputLayer) or \
+                isinstance(prev_tr_layer, DeformLayer):
                 img_sz = prev_tr_layer.out_sz
                 tr_inpt = tr_inpt.reshape((batch_sz, 1, img_sz, img_sz))
                 te_inpt = te_inpt.reshape((batch_sz, 1, img_sz, img_sz))
@@ -508,10 +583,10 @@ class NeuralNet():
 
         # Set Epoch and learning rate
         if 'CUR_EPOCH' not in training_params:    training_params['CUR_EPOCH'] = 0
-        self.cur_learn_rate = theano.shared(np.cast[theano.config.floatX](0.0))
+        self.cur_learn_rate = theano.shared(np.cast[float_x](0.0))
         self.set_rate()
 
-    def get_trin_model(self):
+    def get_trin_model(self, x_data, y_data):
         # cost, training params, gradients, updates to those params
         print('Compiling training function...')
 
@@ -536,18 +611,30 @@ class NeuralNet():
             else:
                 updates.append((param, stepped_param))
 
+        index = T.lscalar()
+        batch_sz = self.training_params['BATCH_SZ']
+
         return theano.function(
-            [self.x, self.y],
-            [cost, self.tr_layers[-2].inpt,
+            [index],
+            [cost,
+             self.tr_layers[-2].inpt,
              self.tr_layers[-1].inpt,
              self.tr_layers[-1].features,
              self.tr_layers[-1].logprob,
             ],
-            updates=updates)
+            updates=updates,
+            givens={
+                self.x: x_data[index * batch_sz: (index + 1) * batch_sz],
+                self.y: y_data[index * batch_sz: (index + 1) * batch_sz]})
 
-    def get_test_model(self):
+    def get_test_model(self, x_data, y_data):
         print('Compiling testing function... ')
-        return theano.function([self.test_x, self.y], self.te_layers[-1].errors(self.y))
+        index = T.lscalar()
+        batch_sz = self.training_params['BATCH_SZ']
+        return theano.function([index], self.te_layers[-1].errors(self.y),
+                givens={
+                self.test_x: x_data[index * batch_sz: (index + 1) * batch_sz],
+                self.y     : y_data[index * batch_sz: (index + 1) * batch_sz]})
 
     def get_full_test_model(self, test_set_x, test_set_y):
         print('Compiling full testing function... ')
