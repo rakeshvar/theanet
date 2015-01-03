@@ -10,10 +10,10 @@ import importlib
 import numpy as np
 import sys
 from neuralnet import NeuralNet
-from deformer import Deformer, transform_flat_batch
 from theano import shared, config
 
 # ############################### HELPER FUNCTIONS ############################
+
 
 def read_json_bz2(path2data):
     import bz2, json, contextlib
@@ -22,8 +22,8 @@ def read_json_bz2(path2data):
         return np.array(json.load(fdata))
 
 
-def share(data, dtype=config.floatX):
-    return shared(np.asarray(data, dtype), borrow=True)
+def share(data, dtype=config.floatX, borrow=True):
+    return shared(np.asarray(data, dtype), borrow=borrow)
 
 
 class WrapOut:
@@ -50,9 +50,9 @@ class WrapOut:
 
 if len(sys.argv) < 4:
     print('Usage:', sys.argv[0],
-          ''' <xmatrix.bz2> <ymatrix.bz2> <params_file(s)>
+          ''' <x.bz2> <y.bz2> <params_file(s)> [out2file=0] [auxillary.bz2]
     .bz2 files contain the samples and the output classes as generated
-        by the gen_cnn_data.py script.
+        by the gen_cnn_data.py script (or the like).
     params_file(s) :
         Parameters for the NeuralNet
         - params_file.py  : contains the initialization code
@@ -119,44 +119,49 @@ for key, val in tr_prms.items():
 
 ##########################################  Load Data
 
+print("\nInitializing the net ... ")
+nn = NeuralNet(layers, tr_prms, allwts)
+print(nn)
+
 print("\nLoading the data ...")
 sys.stdout.forceflush()
 
 batch_sz = tr_prms['BATCH_SZ']
 img_sz = layers[0][1]['img_sz']
 data_x = read_json_bz2(sys.argv[1])
-data_x = data_x.reshape((data_x.shape[0], img_sz, img_sz))
 data_y = read_json_bz2(sys.argv[2])
+
+corpus_sz = data_x.shape[0]
+data_x = data_x.reshape((corpus_sz, img_sz, img_sz))
+
 print("X (samples, dimension) Size : {} {}KB\n"
       "Y (samples, dimension) Size : {} {}KB\n"
       "Y (min, max) : {} {}".format(data_x.shape, data_x.nbytes // 1000,
                                     data_y.shape, data_y.nbytes // 1000,
                                     data_y.min(), data_y.max()))
 
-corpus_sz = data_x.shape[0]
-TRAIN = int(corpus_sz * tr_prms['TRAIN_ON_FRACTION'])
+n_train = int(corpus_sz * tr_prms['TRAIN_ON_FRACTION'])
 
-np_trin_x = data_x[:TRAIN, ]
-np_test_x = data_x[TRAIN:, ]
-np_trin_y = data_y[:TRAIN, ].astype('int32')
-np_test_y = data_y[TRAIN:, ].astype('int32')
+trin_x = share(data_x[:n_train, ])
+test_x = share(data_x[n_train:, ])
+trin_y = share(data_y[:n_train, ], 'int32')
+test_y = share(data_y[n_train:, ], 'int32')
 
-trin_x = share(data_x[:TRAIN, ])
-test_x = share(data_x[TRAIN:, ])
-trin_y = share(data_y[:TRAIN, ], 'int32')
-test_y = share(data_y[TRAIN:, ], 'int32')
-
-print("\nInitializing the net ... ")
-nn = NeuralNet(layers, tr_prms, allwts)
-print(nn)
+if len(sys.argv) > 5:
+    data_aux = read_json_bz2(sys.argv[5])
+    data_aux = data_aux.reshape((corpus_sz, 2, 2))
+    trin_aux = share(data_aux[:n_train, ])
+    test_aux = share(data_aux[n_train:, ])
+else:
+    trin_aux, test_aux = None, None
 
 print("\nCompiling ... ")
-training_fn = nn.get_trin_model(trin_x, trin_y)
-test_fn_tr = nn.get_test_model(trin_x, trin_y)
-test_fn_te = nn.get_test_model(test_x, test_y)
+training_fn = nn.get_trin_model(trin_x, trin_y, trin_aux)
+test_fn_tr = nn.get_test_model(trin_x, trin_y, trin_aux)
+test_fn_te = nn.get_test_model(test_x, test_y, test_aux)
 
-tr_corpus_sz = TRAIN
-te_corpus_sz = corpus_sz - TRAIN
+tr_corpus_sz = n_train
+te_corpus_sz = corpus_sz - n_train
 nEpochs = tr_prms['NUM_EPOCHS']
 nTrBatches = tr_corpus_sz // batch_sz
 nTeBatches = te_corpus_sz // batch_sz
@@ -202,50 +207,20 @@ def do_test():
         trin_err, aux_trin_err, test_err, aux_test_err))
     sys.stdout.forceflush()
 
-    with open(pickle_file_name, 'wb') as f:
-        cPickle.dump(nn.get_init_params(), f, -1)
+    with open(pickle_file_name, 'wb') as pkl_file:
+        cPickle.dump(nn.get_init_params(), pkl_file, -1)
 
-############################################ Deformer
-wd = ht = layers[0][1]['img_sz']
 
 ############################################ Training Loop
-if (tr_prms['DEFORM'] == 'parallel'):
-    import sharedmem
-
-deform_time, train_time, test_time = 0, 0, 0
-if not 'DFM_PRMS' in tr_prms:
-    tr_prms['DEFORM'] = 'serial'
-    tr_prms['DFM_PRMS'] = {'scale': 64, 'sigma': 8, 'cval': 0, 'ncpus': 1},
-df_prms = tr_prms['DFM_PRMS']
 
 print("Training ...")
 print("Epoch   Cost  Tr_Error Tr_{0}    Te_Error Te_{0}".format(aux_err_name))
 for epoch in range(nEpochs):
     total_cost = 0
 
-    if (tr_prms['DEFORM'] == 'parallel'):
-        sh_np_trin_x = sharedmem.copy(np_trin_x)
-        deformer = Deformer(sh_np_trin_x, batch_sz, (wd, ht), **df_prms)
-        if epoch == 0:
-            print(deformer)
-        for ibatch in deformer:
-            output = training_fn(np_trin_x[ibatch * batch_sz:(ibatch + 1) * batch_sz],
-                                 np_trin_y[ibatch * batch_sz:(ibatch + 1) * batch_sz])
-            total_cost += output[0]
-        del deformer
-        del sh_np_trin_x
-
-    else:
-        for ibatch in range(nTrBatches):
-            t = time()
-            #imgs = np_trin_x[ibatch*batch_sz:(ibatch+1)*batch_sz]
-            if tr_prms['DEFORM'] == 'serial':
-                imgs = transform_flat_batch(imgs, shape=(wd, ht), **df_prms)
-            deform_time += time() - t
-            t = time()
-            output = training_fn(ibatch)
-            train_time += time() - t
-            total_cost += output[0]
+    for ibatch in range(nTrBatches):
+        output = training_fn(ibatch)
+        total_cost += output[0]
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
         print("{:3d} {:>8.2f}".format(epoch, total_cost), end='    ')
@@ -256,11 +231,3 @@ for epoch in range(nEpochs):
     nn.inc_epoch_set_rate()
 
 print('Optimization Complete!!!')
-total_time = deform_time + train_time + test_time
-deform_time = 100 * deform_time / total_time
-train_time = 100 * train_time / total_time
-test_time = 100 * test_time / total_time
-print('total_time : {:.3f}\n\t'
-      'deform_time : {:.2f}%\n\t'
-      'train_time  : {:.2f}%\n\t'
-      'test_time   : {:.2f}%\n\t'.format(total_time, deform_time, train_time, test_time))

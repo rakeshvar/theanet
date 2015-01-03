@@ -7,26 +7,22 @@ layers = [
             'sigma'         :8,
             'pflip'         :.02,
             }),
-        ('ConvPoolLayer', {
-            'num_maps'      :6,
-            'filter_sz'     :3,
-            'stride'        :1,
-            'pool_sz'       :2,
-            }),
-        ('ConvPoolLayer', {
-            'num_maps'      :24,
-            'filter_sz'     :3,
-            'stride'        :1,
-            'pool_sz'       :2,
-            'actvn'         :"relu",
-            }),
+        # ('InputLayer', {
+        #     'max_perturb'   :4,
+        #     'img_sz'        :68,
+        #     'pflip'         :.05,
+        #     'batch_sz'      :20,
+        #     'num_maps'      :1,
+        #     }),
         ('HiddenLayer', {
             'n_out'         :1000,
             'pdrop'         :.5,
             'actvn'         :'relu',
             }),
-        ('SoftmaxLayer', {
-            'n_out'         :457,
+        ('HiddenLayer', {
+            'n_out'         :1000,
+            'pdrop'         :.5,
+            'actvn'         :'relu',
             }),
 #       ('CenteredOutLayer', {
 #           'centers'       :None,
@@ -36,16 +32,21 @@ layers = [
 #           'learn_centers' :True, 
 #           'junk_dist'     :1e6,
 #           }),
+        ('SoftAuxLayer', {
+            'n_aux'         :7,
+            'aux_actvn'     :"relu",
+            'aux_type'      :"LocationInfo",
+            'n_out'         :457,
+            }),
 ]
 
 training_params = {
-    #'SEED'  : None,
-    'BATCH_SZ'   :20,
+	'BATCH_SZ' : 20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,
     'EPOCHS_TO_TEST' : 1,
     'TEST_SAMP_SZ': 5000,
-    'DEFORM'    : 'none',
+    'DEFORM'    : None,
     'DFM_PRMS' : {},
 
     'MOMENTUM' : .95,

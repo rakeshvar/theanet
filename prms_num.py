@@ -1,5 +1,5 @@
 layers = [
-		('DeformLayer', {
+		('ElasticLayer', {
 			'translation'	:4,
 			'img_sz'		:32,
             'zoom'          :1.1,

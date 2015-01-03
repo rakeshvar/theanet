@@ -25,21 +25,16 @@ layers = [
             'pdrop'         :.5,
             'actvn'         :'relu',
             }),
-        ('SoftmaxLayer', {
+        ('SoftAuxLayer', {
+        	'n_aux'			:7,
+            'aux_actvn'     :"relu",
+            'aux_type'      :"LocationInfo",
             'n_out'         :457,
             }),
-#       ('CenteredOutLayer', {
-#           'centers'       :None,
-#           'n_features'    :100,
-#           'n_classes'     :10,
-#           'kind'          :'RBF',
-#           'learn_centers' :True, 
-#           'junk_dist'     :1e6,
-#           }),
 ]
 
 training_params = {
-    #'SEED'  : None,
+    # 'SEED'  : None,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,
