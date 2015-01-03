@@ -50,13 +50,15 @@ class WrapOut:
 
 if len(sys.argv) < 4:
     print('Usage:', sys.argv[0],
-          ''' <x.bz2> <y.bz2> <params_file(s)> [out2file=0] [auxillary.bz2]
+          ''' <x.bz2> <y.bz2> <params_file(s)> [auxillary.bz2] [redirect=0]
     .bz2 files contain the samples and the output classes as generated
         by the gen_cnn_data.py script (or the like).
     params_file(s) :
         Parameters for the NeuralNet
         - params_file.py  : contains the initialization code
         - params_file.pkl : pickled file from a previous run (has wts too).
+    out2file:
+    	1 - redirect stdout to a <SEED>.txt file
     ''')
     sys.exit()
 
@@ -84,7 +86,7 @@ else:
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
     tr_prms['SEED'] = np.random.randint(0, 1e6)
 
-if len(sys.argv) > 4 and sys.argv[4] is '1':
+if sys.argv[-1] is '1':
     print("Printing output to {}.txt".format(tr_prms['SEED']))
     sys.stdout = WrapOut(True, str(tr_prms['SEED']) + '.txt')
 else:
@@ -147,8 +149,8 @@ test_x = share(data_x[n_train:, ])
 trin_y = share(data_y[:n_train, ], 'int32')
 test_y = share(data_y[n_train:, ], 'int32')
 
-if len(sys.argv) > 5:
-    data_aux = read_json_bz2(sys.argv[5])
+if len(sys.argv) > 4:
+    data_aux = read_json_bz2(sys.argv[4])
     data_aux = data_aux.reshape((corpus_sz, 2, 2))
     trin_aux = share(data_aux[:n_train, ])
     test_aux = share(data_aux[n_train:, ])
