@@ -1,15 +1,17 @@
 TODO
 ----
 
-1) Test Deformer over multiple runs
+Main
+----
+1) Remove import lib, make it ast based.
 
 2) Add documentation for prms_files
 
 3) Create unit_test
 
-4) Test initialization from .pkl file
-
-5) Reformat input images to 2D (as opposed to raster)
-
+Secondary
+---------
 6) Add support for multi-map images
+
+7) Remove img_sz in prms file
 
