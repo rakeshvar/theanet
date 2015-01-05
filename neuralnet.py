@@ -33,7 +33,8 @@ class NeuralNet():
         te_layers = []
 
         # Input Layer
-        assert lyrs[0][0] in ('InputLayer', 'ElasticLayer')
+        assert lyrs[0][0] in ('InputLayer', 'ElasticLayer'), \
+            "First layer needs to be Input or Elastic Distorition Layer"
         batch_sz = training_params['BATCH_SZ']
 
         ilayer = 0
@@ -98,7 +99,10 @@ class NeuralNet():
         #       |- Needs Wts for hidden layer (can be generated randomly as nPrevLayerUnits x nClasses)
         #       |- Needs CENTERS as nClasses
         assert lyrs[ilayer][0] in ('SoftmaxLayer', 'SoftAuxLayer',
-                                 'CenteredOutLayer')
+                                   'CenteredOutLayer'), \
+            "Hidden Layers need to be followed by OutputLayer"
+
+
 
         wts = allwts[ilayer] if allwts else None
         prev_tr_layer = tr_layers[ilayer - 1]
@@ -129,7 +133,7 @@ class NeuralNet():
 
         for tr_layer, te_layer in zip(tr_layers, te_layers):
             if type(tr_layer) in (AuxConcatLayer, SoftAuxLayer):
-                assert not hasattr(self, 'aux_inpt_tr')
+                assert not hasattr(self, 'aux_inpt_tr'), "Multiple Aux Inputs"
                 self.aux_inpt_tr = tr_layer.aux_inpt
                 self.aux_inpt_te = te_layer.aux_inpt
 
@@ -185,7 +189,7 @@ class NeuralNet():
             self.x: x_data[indx * bth_sz: (indx + 1) * bth_sz],
             self.y: y_data[indx * bth_sz: (indx + 1) * bth_sz], }
         if hasattr(self, 'aux_inpt_tr'):
-            assert aux_data is not None
+            assert aux_data is not None, "Auxillary data not supplied"
             givens[self.aux_inpt_tr] = \
                 aux_data[indx * bth_sz: (indx + 1) * bth_sz]
 
@@ -208,19 +212,13 @@ class NeuralNet():
             self.y: y_data[idx * bth_sz : (idx + 1) * bth_sz]}
 
         if hasattr(self, 'aux_inpt_te'):
-            assert aux_data is not None
+            assert aux_data is not None, "Auxillary data not supplied"
             givens[self.aux_inpt_te] = \
                 aux_data[idx * bth_sz : (idx + 1) * bth_sz]
 
         return theano.function([idx],
                                self.te_layers[-1].errors(self.y),
                                givens=givens)
-
-
-    def get_full_test_model(self, test_set_x, test_set_y):
-        print('Compiling full testing function... ')
-        return theano.function([self.test_x, self.y],
-                               self.te_layers[-1].get_predictions(self.y))
 
 
     def get_init_params(self):

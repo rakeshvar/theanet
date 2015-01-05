@@ -1,4 +1,5 @@
-layers = [
+{
+"layers" : [
 		('ElasticLayer', {
 			'translation'	:4,
 			'img_sz'		:32,
@@ -21,9 +22,9 @@ layers = [
 		('SoftmaxLayer', {
 			'n_out'			:10,
 			}),
-]
+],
 
-training_params = {
+"training_params" : {
     'BATCH_SZ'	 :20,
 	'NUM_EPOCHS' : 41,
 	'TRAIN_ON_FRACTION' : .75,
@@ -39,7 +40,5 @@ training_params = {
 	'LAMBDA1': 0.,
 	'LAMBDA2': 0.0001,
 	'MAXNORM': 3.5,
+},
 }
-
-# TODO:
-	# Move regularization to layer

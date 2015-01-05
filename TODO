@@ -1,17 +1,19 @@
 TODO
-----
+
 
 Main
 ----
-1) Remove import lib, make it ast based.
+13) Add Space/Null/Junk
 
-2) Add documentation for prms_files
+15) Move L1, L2, Maxnorm to Layers
 
-3) Create unit_test
+16) Add documentation for prms_files
+
+17) Create unit_test
+
 
 Secondary
 ---------
 6) Add support for multi-map images
 
 7) Remove img_sz in prms file
-

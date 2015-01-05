@@ -5,6 +5,7 @@ from datetime import datetime
 from operator import mul
 from time import time
 
+import ast
 import cPickle
 import importlib
 import numpy as np
@@ -66,21 +67,22 @@ if len(sys.argv) < 4:
 
 prms_file_name = sys.argv[3]
 
-if prms_file_name[-3:] == '.py':
-    params = importlib.import_module(prms_file_name[:-3])
-    layers = params.layers
-    tr_prms = params.training_params
-    allwts = None
+with open(prms_file_name, 'rb') as f:
+    if prms_file_name.endswith('.ast'):
+        params = ast.literal_eval(f.read())
 
-elif prms_file_name[-4:] == '.pkl':
-    with open(prms_file_name, 'rb') as f:
+    elif prms_file_name.endswith('.pkl'):
         params = cPickle.load(f)
+
+    else:
+        raise NotImplementedError('Unknown file type for: ' + prms_file_name)
+
     layers = params['layers']
     tr_prms = params['training_params']
-    allwts = params['allwts']
-
-else:
-    raise NotImplementedError('Unknown file type for: ' + prms_file_name)
+    try:
+        allwts = params['allwts']
+    except KeyError:
+        allwts = None
 
 ## Init SEED
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
@@ -225,7 +227,7 @@ for epoch in range(nEpochs):
         total_cost += output[0]
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
-        print("{:3d} {:>8.2f}".format(epoch, total_cost), end='    ')
+        print("{:3d} {:>8.2f}".format(nn.get_epoch(), total_cost), end='    ')
         t = time()
         do_test()
         test_time = time() - t
