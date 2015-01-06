@@ -175,7 +175,7 @@ nTeBatches = te_corpus_sz // batch_sz
 
 def test_wrapper(nylist):
     sym_err, bit_err, n = 0., 0., 0
-    for symdiff, bitdiff, _, _ in nylist:
+    for symdiff, bitdiff in nylist:
         sym_err += symdiff
         bit_err += bitdiff
         n += 1

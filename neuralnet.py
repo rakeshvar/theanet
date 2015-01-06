@@ -202,7 +202,7 @@ class NeuralNet():
                                givens=givens)
 
 
-    def get_test_model(self, x_data, y_data, aux_data=None):
+    def get_test_model(self, x_data, y_data, aux_data=None, preds_feats=False):
         print('Compiling testing function... ')
         idx = tt.lscalar('test batch index')
         bth_sz = self.tr_prms['BATCH_SZ']
@@ -216,10 +216,25 @@ class NeuralNet():
             givens[self.aux_inpt_te] = \
                 aux_data[idx * bth_sz : (idx + 1) * bth_sz]
 
+        outputs = self.te_layers[-1].sym_and_oth_err_rate(self.y)
+        if preds_feats:
+            outputs += self.te_layers[-1].features_and_predictions()
+
         return theano.function([idx],
-                               self.te_layers[-1].errors(self.y),
+                               outputs,
                                givens=givens)
 
+    def takes_aux(self):
+        return hasattr(self, 'aux_inpt_te')
+
+    def get_data_test_model(self):
+        print('Compiling full test function...')
+        inputs = [self.test_x]
+        if self.takes_aux():
+            inputs += [self.aux_inpt_te]
+
+        return theano.function(inputs,
+                               self.te_layers[-1].features_and_preditions())
 
     def get_init_params(self):
         return {"layers": self.layers,

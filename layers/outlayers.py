@@ -12,10 +12,10 @@ class OutputLayer(object):
     def neg_log_likli(self, y):
         return -tt.mean(self.logprob[tt.arange(y.shape[0]), y])
 
-    def get_predictions(self, y):
-        return self.features, self.y_preds, y
+    def features_and_predictions(self):
+        return self.features, self.y_preds
 
-    def errors(self, y):
+    def sym_and_oth_err_rate(self, y):
         sym_err_rate = tt.mean(tt.neq(self.y_preds, y))
 
         if self.kind == 'LOGIT':
@@ -26,7 +26,7 @@ class OutputLayer(object):
             # Likelihood of MLE
             second_stat = tt.mean(self.probs[tt.arange(y.shape[0]), y])
 
-        return sym_err_rate, second_stat, self.y_preds, y
+        return sym_err_rate, second_stat
 
 
 class SoftmaxLayer(HiddenLayer, OutputLayer):
