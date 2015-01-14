@@ -1,7 +1,7 @@
 import numpy as np
 import theano as th
 import theano.tensor as tt
-from layers.hidden import HiddenLayer
+from hidden import HiddenLayer
 from weights import borrow, is_shared_var
 
 float_x = th.config.floatX

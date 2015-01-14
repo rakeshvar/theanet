@@ -3,19 +3,20 @@ import numpy as np
 import theano
 import theano.tensor as tt
 
-import layers
-from layers import InputLayer, ElasticLayer, HiddenLayer, ConvPoolLayer
-from layers import SoftmaxLayer, CenteredOutLayer, AuxConcatLayer, SoftAuxLayer
+import layer
+from layer import InputLayer, ElasticLayer, HiddenLayer, ConvPoolLayer
+from layer import SoftmaxLayer, CenteredOutLayer, AuxConcatLayer, SoftAuxLayer
+from layer.weights import borrow
 
 # theano.config.optimizer = 'fast_compile'
+# theano.config.exception_verbosity = "high"
 ###############################################################################
 #                           The Neural Network
 ###############################################################################
-from layers.weights import borrow
 
 
 class NeuralNet():
-    def __init__(self, lyrs, training_params, allwts=None):
+    def __init__(self, layers, training_params, allwts=None):
 
         # Either we have a random seed or the WTS for each layer from a 
         # previously trained NeuralNet
@@ -33,20 +34,20 @@ class NeuralNet():
         te_layers = []
 
         # Input Layer
-        assert lyrs[0][0] in ('InputLayer', 'ElasticLayer'), \
+        assert layers[0][0] in ('InputLayer', 'ElasticLayer'), \
             "First layer needs to be Input or Elastic Distorition Layer"
         batch_sz = training_params['BATCH_SZ']
 
         ilayer = 0
-        if lyrs[0][0] == 'InputLayer':
-            tr_layers.append(InputLayer(x, **lyrs[0][1]))
-        elif lyrs[0][0] == 'ElasticLayer':
-            tr_layers.append(ElasticLayer(x, **lyrs[0][1]))
+        if layers[0][0] == 'InputLayer':
+            tr_layers.append(InputLayer(x, **layers[0][1]))
+        elif layers[0][0] == 'ElasticLayer':
+            tr_layers.append(ElasticLayer(x, **layers[0][1]))
         te_layers.append(tr_layers[0].TestVersion(test_x))
         ilayer += 1
 
         # ConvPool Layers
-        while lyrs[ilayer][0] == 'ConvPoolLayer':
+        while layers[ilayer][0] == 'ConvPoolLayer':
             prev_tr_layer = tr_layers[ilayer - 1]
             prev_te_layer = te_layers[ilayer - 1]
             tr_inpt = prev_tr_layer.output
@@ -62,7 +63,7 @@ class NeuralNet():
             curr_layer = ConvPoolLayer(tr_inpt, wts, rand_gen, batch_sz,
                                        prev_tr_layer.num_maps,
                                        prev_tr_layer.out_sz,
-                                       **lyrs[ilayer][1])
+                                       **layers[ilayer][1])
 
             tr_layers.append(curr_layer)
             te_layers.append(curr_layer.TestVersion(te_inpt))
@@ -75,16 +76,16 @@ class NeuralNet():
         prev_te_layer.output = prev_te_layer.output.flatten(2)
 
         #  Hidden Layers
-        while lyrs[ilayer][0] in ('AuxConcatLayer', 'HiddenLayer'):
+        while layers[ilayer][0] in ('AuxConcatLayer', 'HiddenLayer'):
             prev_tr_layer = tr_layers[ilayer - 1]
             prev_te_layer = te_layers[ilayer - 1]
 
             wts = allwts[ilayer] if allwts else None
 
-            curr_layer_type = getattr(layers, lyrs[ilayer][0])
+            curr_layer_type = getattr(layer, layers[ilayer][0])
             curr_layer = curr_layer_type(prev_tr_layer.output, wts, rand_gen,
                                          prev_tr_layer.n_out,
-                                         **lyrs[ilayer][1])
+                                         **layers[ilayer][1])
 
             tr_layers.append(curr_layer)
             te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
@@ -98,8 +99,8 @@ class NeuralNet():
         #   |- SoftmaxLayer
         #       |- Needs Wts for hidden layer (can be generated randomly as nPrevLayerUnits x nClasses)
         #       |- Needs CENTERS as nClasses
-        assert lyrs[ilayer][0] in ('SoftmaxLayer', 'SoftAuxLayer',
-                                   'CenteredOutLayer'), \
+        assert layers[ilayer][0] in ('SoftmaxLayer', 'SoftAuxLayer',
+                                     'CenteredOutLayer'), \
             "Hidden Layers need to be followed by OutputLayer"
 
 
@@ -108,14 +109,14 @@ class NeuralNet():
         prev_tr_layer = tr_layers[ilayer - 1]
         prev_te_layer = te_layers[ilayer - 1]
 
-        if lyrs[ilayer][0][:4] == 'Soft':
-            curr_layer_type = getattr(layers, lyrs[ilayer][0])
+        if layers[ilayer][0][:4] == 'Soft':
+            curr_layer_type = getattr(layer, layers[ilayer][0])
             curr_layer = curr_layer_type(prev_tr_layer.output, wts, rand_gen,
-                                         prev_tr_layer.n_out, **lyrs[ilayer][1])
+                                         prev_tr_layer.n_out, **layers[ilayer][1])
 
-        elif lyrs[ilayer][0] == 'CenteredOutLayer':
+        elif layers[ilayer][0] == 'CenteredOutLayer':
             try:
-                centers = lyrs[ilayer][1].pop('centers')
+                centers = layers[ilayer][1].pop('centers')
             except KeyError:
                 centers = None
 
@@ -125,7 +126,7 @@ class NeuralNet():
 
             curr_layer = CenteredOutLayer(prev_tr_layer.output, wts, centers,
                                           rand_gen, prev_tr_layer.n_out,
-                                          **lyrs[ilayer][1])
+                                          **layers[ilayer][1])
 
         tr_layers.append(curr_layer)
         te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
@@ -142,7 +143,7 @@ class NeuralNet():
         self.te_layers = te_layers
         self.num_layers = ilayer
         self.tr_prms = training_params
-        self.layers = lyrs
+        self.layers = layers
         self.x = x
         self.y = y
         self.test_x = test_x
@@ -161,18 +162,17 @@ class NeuralNet():
 
         learn_prms = [prm for lyr in self.tr_layers for prm in lyr.params]
         cost = self.tr_layers[-1].neg_log_likli(self.y) + \
-               self.tr_prms['LAMBDA1'] * sum(abs(t).sum() for t in learn_prms) + \
-               self.tr_prms['LAMBDA2'] * sum((t ** 2).sum() for t in learn_prms)
+               self.tr_prms['LAMBDA1'] * sum(abs(t).sum() for t in learn_prms)+\
+               self.tr_prms['LAMBDA2'] * sum((t**2).sum() for t in learn_prms)
 
         updates = []
         for param in learn_prms:
             param_update = theano.shared(borrow(param) * 0.,
                                          broadcastable=param.broadcastable)
-            updates.append((param_update,
-                            self.tr_prms['MOMENTUM'] * param_update + (
-                                1. - self.tr_prms['MOMENTUM']) * tt.grad(cost,
-                                                                         param)))
+            update_update = self.tr_prms['MOMENTUM'] * param_update + \
+                      (1. - self.tr_prms['MOMENTUM']) * tt.grad(cost, param)
             stepped_param = param - self.cur_learn_rate * param_update
+            updates.append((param_update, update_update))
 
             if borrow(param).ndim == 2:
                 col_norms = tt.sqrt(tt.sum(tt.sqr(stepped_param), axis=0))
@@ -234,7 +234,7 @@ class NeuralNet():
             inputs += [self.aux_inpt_te]
 
         return theano.function(inputs,
-                               self.te_layers[-1].features_and_preditions())
+                               self.te_layers[-1].features_and_predictions())
 
     def get_init_params(self):
         return {"layers": self.layers,

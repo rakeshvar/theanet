@@ -3,7 +3,7 @@ import numpy as np
 import theano as th
 import theano.tensor.nnet.conv as nnconv
 from theano.tensor.signal import downsample
-from layers.layer import Layer, activation_by_name
+from layer import Layer, activation_by_name
 
 from weights import init_wb, borrow
 

@@ -7,7 +7,6 @@ from time import time
 
 import ast
 import cPickle
-import importlib
 import numpy as np
 import sys
 from neuralnet import NeuralNet
@@ -59,7 +58,7 @@ if len(sys.argv) < 4:
         - params_file.py  : contains the initialization code
         - params_file.pkl : pickled file from a previous run (has wts too).
     out2file:
-    	1 - redirect stdout to a <SEED>.txt file
+        1 - redirect stdout to a <SEED>.txt file
     ''')
     sys.exit()
 
@@ -68,14 +67,10 @@ if len(sys.argv) < 4:
 prms_file_name = sys.argv[3]
 
 with open(prms_file_name, 'rb') as f:
-    if prms_file_name.endswith('.ast'):
-        params = ast.literal_eval(f.read())
-
-    elif prms_file_name.endswith('.pkl'):
+    if prms_file_name.endswith('.pkl'):
         params = cPickle.load(f)
-
     else:
-        raise NotImplementedError('Unknown file type for: ' + prms_file_name)
+        params = ast.literal_eval(f.read())
 
     layers = params['layers']
     tr_prms = params['training_params']
@@ -84,7 +79,7 @@ with open(prms_file_name, 'rb') as f:
     except KeyError:
         allwts = None
 
-## Init SEED
+# # Init SEED
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
     tr_prms['SEED'] = np.random.randint(0, 1e6)
 
@@ -102,10 +97,10 @@ print('Time   : ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 print('Device : {} ({})'.format(config.device, config.floatX))
 
 ## Print Layers Info
-for layer in layers:
-    print('{} : '.format(layer[0]))
-    for key in layer[1]:
-        print('\t{} : \t{}'.format(key, layer[1][key]))
+for lyr in layers:
+    print('{} : '.format(lyr[0]))
+    for key in lyr[1]:
+        print('\t{} : \t{}'.format(key, lyr[1][key]))
 
 ## Print sizes of weights
 if allwts:
@@ -118,31 +113,26 @@ if allwts:
 
 ## Print Training Parameters
 print('\nTraing Parameters: ')
-for key, val in tr_prms.items():
-    print('\t{} : \t{}'.format(key, val))
+for key in sorted(tr_prms.keys()):
+    print('\t{} : \t{}'.format(key, tr_prms[key]))
 
 ##########################################  Load Data
 
-print("\nInitializing the net ... ")
-nn = NeuralNet(layers, tr_prms, allwts)
-print(nn)
-
 print("\nLoading the data ...")
 sys.stdout.forceflush()
-
-batch_sz = tr_prms['BATCH_SZ']
-img_sz = layers[0][1]['img_sz']
 data_x = read_json_bz2(sys.argv[1])
 data_y = read_json_bz2(sys.argv[2])
 
-corpus_sz = data_x.shape[0]
-data_x = data_x.reshape((corpus_sz, img_sz, img_sz))
-
 print("X (samples, dimension) Size : {} {}KB\n"
       "Y (samples, dimension) Size : {} {}KB\n"
+      "X (min, max) : {} {}"
       "Y (min, max) : {} {}".format(data_x.shape, data_x.nbytes // 1000,
                                     data_y.shape, data_y.nbytes // 1000,
+                                    data_x.min(), data_x.max(),
                                     data_y.min(), data_y.max()))
+
+batch_sz = tr_prms['BATCH_SZ']
+corpus_sz, layers[0][1]['img_sz'], _ = data_x.shape
 
 n_train = int(corpus_sz * tr_prms['TRAIN_ON_FRACTION'])
 
@@ -152,12 +142,15 @@ trin_y = share(data_y[:n_train, ], 'int32')
 test_y = share(data_y[n_train:, ], 'int32')
 
 if len(sys.argv) > 4:
-    data_aux = read_json_bz2(sys.argv[4])
-    data_aux = data_aux.reshape((corpus_sz, 2, 2))
+    data_aux = read_json_bz2(sys.argv[4])/layers[0][1]['img_sz']
     trin_aux = share(data_aux[:n_train, ])
     test_aux = share(data_aux[n_train:, ])
 else:
     trin_aux, test_aux = None, None
+
+print("\nInitializing the net ... ")
+nn = NeuralNet(layers, tr_prms, allwts)
+print(nn)
 
 print("\nCompiling ... ")
 training_fn = nn.get_trin_model(trin_x, trin_y, trin_aux)

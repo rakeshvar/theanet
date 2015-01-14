@@ -1,6 +1,6 @@
 import theano as th
 import theano.tensor as tt
-from layers.weights import borrow
+from weights import borrow
 
 float_x = th.config.floatX
 ###############################################################################

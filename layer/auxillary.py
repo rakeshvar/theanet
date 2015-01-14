@@ -1,9 +1,9 @@
 import numpy as np
 import theano as th
 import theano.tensor as tt
-from layers.hidden import HiddenLayer
-from layers.layer import Layer, activation_by_name
-from layers.outlayers import OutputLayer
+from hidden import HiddenLayer
+from layer import Layer, activation_by_name
+from outlayers import OutputLayer
 
 from weights import init_wb, borrow
 

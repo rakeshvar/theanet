@@ -2,10 +2,9 @@
 "layers" : [
         ('ElasticLayer', {
             'translation'   :3,
-            'img_sz'        :48,
             'zoom'          :1.1,
-            'magnitude'     :48,
-            'sigma'         :8,
+            'magnitude'     :60,
+            'sigma'         :15,
             'pflip'         :.02,
             }),
         ('ConvPoolLayer', {
@@ -26,25 +25,26 @@
             'pdrop'         :.5,
             'actvn'         :'relu',
             }),
-        ('AuxConcatLayer', {
-            'n_aux'         :7,
-            'aux_actvn'     :"relu",
-            'aux_type'		:"LocationInfo"
-            }),
         ('SoftmaxLayer', {
             'n_out'         :457,
             }),
+#       ('CenteredOutLayer', {
+#           'centers'       :None,
+#           'n_features'    :100,
+#           'n_classes'     :10,
+#           'kind'          :'RBF',
+#           'learn_centers' :True, 
+#           'junk_dist'     :1e6,
+#           }),
 ],
 
 "training_params" : {
-    # 'SEED'  : 444444,
+    #'SEED'  : None,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,
     'EPOCHS_TO_TEST' : 1,
     'TEST_SAMP_SZ': 5000,
-    'DEFORM'    : 'none',
-    'DFM_PRMS' : {},
 
     'MOMENTUM' : .95,
     'INIT_LEARNING_RATE': .1,
