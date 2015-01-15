@@ -33,6 +33,6 @@ Code
 
 Testing
 -------
-Edit the prms_*.py to your liking and pass it as input to nn.py
-Sit back and watch the horse get to work.
+1. Edit the prms_*.py to your liking and pass it as input to nn.py
+2. Sit back and watch the horse get to work.
 
