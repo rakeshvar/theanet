@@ -99,11 +99,10 @@ class NeuralNet():
         #   |- SoftmaxLayer
         #       |- Needs Wts for hidden layer (can be generated randomly as nPrevLayerUnits x nClasses)
         #       |- Needs CENTERS as nClasses
-        assert layers[ilayer][0] in ('SoftmaxLayer', 'SoftAuxLayer',
+        assert layers[ilayer][0] in ('SoftmaxLayer',
+                                     'SoftAuxLayer',
                                      'CenteredOutLayer'), \
             "Hidden Layers need to be followed by OutputLayer"
-
-
 
         wts = allwts[ilayer] if allwts else None
         prev_tr_layer = tr_layers[ilayer - 1]
@@ -111,8 +110,10 @@ class NeuralNet():
 
         if layers[ilayer][0][:4] == 'Soft':
             curr_layer_type = getattr(layer, layers[ilayer][0])
-            curr_layer = curr_layer_type(prev_tr_layer.output, wts, rand_gen,
-                                         prev_tr_layer.n_out, **layers[ilayer][1])
+            curr_layer = curr_layer_type(prev_tr_layer.output,
+                                         wts, rand_gen,
+                                         prev_tr_layer.n_out,
+                                         **layers[ilayer][1])
 
         elif layers[ilayer][0] == 'CenteredOutLayer':
             try:
@@ -186,12 +187,12 @@ class NeuralNet():
         bth_sz = self.tr_prms['BATCH_SZ']
 
         givens = {
-            self.x: x_data[indx * bth_sz: (indx + 1) * bth_sz],
-            self.y: y_data[indx * bth_sz: (indx + 1) * bth_sz], }
+            self.x: x_data[indx*bth_sz:(indx+1)*bth_sz],
+            self.y: y_data[indx*bth_sz:(indx+1)*bth_sz], }
         if hasattr(self, 'aux_inpt_tr'):
             assert aux_data is not None, "Auxillary data not supplied"
             givens[self.aux_inpt_tr] = \
-                aux_data[indx * bth_sz: (indx + 1) * bth_sz]
+                aux_data[indx*bth_sz:(indx+1)*bth_sz]
 
         return theano.function([indx],
                                [cost,
@@ -208,13 +209,13 @@ class NeuralNet():
         bth_sz = self.tr_prms['BATCH_SZ']
 
         givens = {
-            self.test_x: x_data[idx * bth_sz : (idx + 1) * bth_sz],
-            self.y: y_data[idx * bth_sz : (idx + 1) * bth_sz]}
+            self.test_x: x_data[idx*bth_sz:(idx+1)*bth_sz],
+            self.y: y_data[idx*bth_sz:(idx+1)*bth_sz]}
 
         if hasattr(self, 'aux_inpt_te'):
             assert aux_data is not None, "Auxillary data not supplied"
             givens[self.aux_inpt_te] = \
-                aux_data[idx * bth_sz : (idx + 1) * bth_sz]
+                aux_data[idx*bth_sz:(idx+1)*bth_sz]
 
         outputs = self.te_layers[-1].sym_and_oth_err_rate(self.y)
         if preds_feats:

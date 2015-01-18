@@ -34,8 +34,7 @@
 #           'junk_dist'     :1e6,
 #           }),
         ('SoftAuxLayer', {
-            'n_aux'         :7,
-            'aux_actvn'     :"relu",
+            'n_aux'         :(7, 14),
             'aux_type'      :"LocationInfo",
             'n_out'         :457,
             }),

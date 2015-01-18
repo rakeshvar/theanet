@@ -5,7 +5,9 @@
             'zoom'          :1.1,
             'magnitude'     :60,
             'sigma'         :15,
-            'pflip'         :.02,
+            'pflip'         :.0,
+            'nearest'       :True,
+            'invert_image'  :True,
             }),
         ('ConvPoolLayer', {
             'num_maps'      :6,
@@ -39,7 +41,7 @@
 ],
 
 "training_params" : {
-    #'SEED'  : None,
+    'SEED'  : 555555,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,

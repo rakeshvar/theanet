@@ -40,7 +40,7 @@
     'DFM_PRMS' : {},
 
 	'MOMENTUM' : .95,
-	'SEED'	: None,
+	'SEED'	: 90909,
 	'INIT_LEARNING_RATE': .1,
 	'EPOCHS_TO_HALF_RATE':	12,
 	'LAMBDA1': 0.,

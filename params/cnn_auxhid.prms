@@ -26,8 +26,7 @@
             'actvn'         :'relu',
             }),
         ('AuxConcatLayer', {
-            'n_aux'         :7,
-            'aux_actvn'     :"relu",
+            'n_aux'         :(7, 7),
             'aux_type'		:"LocationInfo"
             }),
         ('SoftmaxLayer', {

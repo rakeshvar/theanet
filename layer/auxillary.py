@@ -13,8 +13,12 @@ float_x = th.config.floatX
 
 
 class LocationInfo():
-    def __init__(self, wts, rand_gen=None,
-                 n_aux=6, actvn='tanh', test_version=False):
+    def __init__(self,
+                 wts,
+                 rand_gen=None,
+                 n_aux=(6, 6),
+                 test_version=False,):
+
         loc_inpt4 = tt.tensor3('AuxiallaryInput')
 
         if not test_version:
@@ -26,18 +30,30 @@ class LocationInfo():
         else:
             loc_inpt2 = tt.mean(loc_inpt4, axis=1)
 
-        hidden_w = th.shared(np.asarray([[1, 0, -1, 0, 1, 1],
-                                         [0, 1, 0, -1, 1, -1]],
-                                        dtype=th.config.floatX))
-        n_hidden = borrow(hidden_w).shape[1]
-        hidden = tt.maximum(tt.dot(loc_inpt2, hidden_w), 0)
+        n_aux_hid, n_aux_out = n_aux
 
-        loc_w, loc_b = init_wb(wts, rand_gen, (n_hidden, n_aux), n_aux,
-                               n_aux + n_hidden, n_aux + n_hidden, 'relu',
-                               'Location')
-        self.output = activation_by_name(actvn)(tt.dot(hidden, loc_w) + loc_b)
+        # First Layer
+        actvn1 = "softplus"
+        loc1_wts = None if wts is None else wts[:2]
+        loc1_w, loc1_b = init_wb(loc1_wts, rand_gen,
+                                 (2, n_aux_hid), n_aux_hid,
+                                 n_aux_hid + 2, n_aux_hid + 2,
+                                 actvn1, 'Loc1')
+        hidden = activation_by_name(actvn1)(tt.dot(loc_inpt2, loc1_w) +
+                                              loc1_b)
+
+        # Second Layer
+        actvn2 = "linear"
+        loc2_wts = None if wts is None else wts[2:]
+        loc2_w, loc2_b = init_wb(loc2_wts, rand_gen,
+                                 (n_aux_hid, n_aux_out), n_aux_out,
+                                 n_aux_out + n_aux_hid, n_aux_out + n_aux_hid,
+                                 actvn2, 'Loc2')
+        self.output = activation_by_name(actvn2)(tt.dot(hidden, loc2_w) +
+                                                 loc2_b)
+
         self.aux_inpt = loc_inpt4
-        self.params = [loc_w, loc_b]
+        self.params = [loc1_w, loc1_b, loc2_w, loc2_b]
 
 
 ############################## Auxiallary Layers ###############################
@@ -51,31 +67,28 @@ class AuxConcatLayer(Layer):
                  n_in,
                  n_aux,
                  aux_type,
-                 aux_actvn,
                  test_version=False):
         """
         """
         # noinspection PyCallingNonCallable
-        aux_info = globals()[aux_type](wts, rand_gen, n_aux, aux_actvn,
-                                       test_version)
+        aux_info = globals()[aux_type](wts, rand_gen, n_aux, test_version)
         output = tt.concatenate((inpt, aux_info.output), axis=1)
 
         self.aux_inpt = aux_info.aux_inpt
         self.output = output
-        self.n_aux, self.n_in = n_aux, n_in
+        self.n_aux = n_aux
+        self.n_in = n_in
         self.n_out = n_aux + n_in
         self.aux_type = aux_type
-        self.aux_actvn = aux_actvn
         self.params = aux_info.params
-        self.representation = "AuxConcat In:{:3d} Aux:{:3d} Out:{:3d} Act:{}". \
-            format(n_in, n_aux, self.n_out, aux_actvn, )
+        self.representation = "AuxConcat In:{:3d} Aux:{} Out:{:3d} ". \
+            format(n_in, n_aux, self.n_out)
 
     def TestVersion(self, te_inpt):
         return AuxConcatLayer(te_inpt,
                               self.params, None,
                               self.n_in, self.n_aux,
                               self.aux_type,
-                              self.aux_actvn,
                               test_version=True)
 
 
@@ -86,7 +99,6 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                  rand_gen,
                  n_in, n_out, n_aux,
                  aux_type,
-                 aux_actvn,
                  test_version=False):
 
         hidden_wts = None if wts is None else wts[:2]
@@ -94,29 +106,29 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                              actvn='linear',
                              pdrop=0)
 
-        aux_wts = None if wts is None else wts[2:4]
+        aux_wts = None if wts is None else wts[2:6]
         # noinspection PyCallingNonCallable
-        aux_info = globals()[aux_type](aux_wts, rand_gen, n_aux, aux_actvn,
-                                       test_version)
+        aux_info = globals()[aux_type](aux_wts, rand_gen, n_aux, test_version)
 
-        oth_wts = None if wts is None else wts[4:6]
-        oth_w, oth_b = init_wb(oth_wts, rand_gen, (n_aux, n_out), n_out,
-                               n_aux + n_out, n_aux + n_out, 'relu',
-                               'SoftAuxCross')
+        cross_wts = None if wts is None else wts[6:]
+        n_aux_hid, n_aux_out = n_aux
+        cross_w, cross_b = init_wb(cross_wts, rand_gen,
+                                   (n_aux_out, n_out), n_out,
+                                   n_aux_out + n_out, n_aux_out + n_out,
+                                   'relu', 'SoftAuxCross')
 
-        self.hidden_ouput = self.output
+        self.hidden_ouput = self.output #* 0.0 + cross_b
         self.output = tt.nnet.softmax(self.hidden_ouput +
-                                      tt.dot(aux_info.output, oth_w))
+                                      tt.dot(aux_info.output, cross_w))
 
         self.aux_inpt = aux_info.aux_inpt
         self.n_aux = n_aux
         self.n_out = n_out
         self.aux_type = aux_type
-        self.aux_actvn = aux_actvn
         self.params += aux_info.params
-        self.params += [oth_w, oth_b]
-        self.representation = "SoftAux In:{:3d} Aux:{:3d} Out:{:3d} AuxAct:{}" \
-                              "".format(n_in, n_aux, n_out, aux_actvn, )
+        self.params += [cross_w, cross_b]
+        self.representation = "SoftAux In:{:3d} Aux:{} Out:{:3d}" \
+                              "".format(n_in, n_aux, n_out,)
 
         #############################################################
         self.y_preds = tt.argmax(self.output, axis=1)
@@ -129,5 +141,4 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         return SoftAuxLayer(inpt, self.params, rand_gen=None,
                             n_in=self.n_in, n_out=self.n_out, n_aux=self.n_aux,
                             aux_type=self.aux_type,
-                            aux_actvn=self.aux_actvn,
                             test_version=True)

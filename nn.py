@@ -3,6 +3,7 @@
 from __future__ import print_function
 from datetime import datetime
 from operator import mul
+import os
 from time import time
 
 import ast
@@ -62,9 +63,15 @@ if len(sys.argv) < 4:
     ''')
     sys.exit()
 
-# #########################################  Import Parameters
-
+imgs_file_name = sys.argv[1]
+lbls_file_name = sys.argv[2]
 prms_file_name = sys.argv[3]
+if len(sys.argv) > 4 and sys.argv[4].endswith('.bz2'):
+    aux_file_name = sys.argv[4]
+else:
+    aux_file_name = None
+
+##########################################  Import Parameters
 
 with open(prms_file_name, 'rb') as f:
     if prms_file_name.endswith('.pkl'):
@@ -83,9 +90,12 @@ with open(prms_file_name, 'rb') as f:
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
     tr_prms['SEED'] = np.random.randint(0, 1e6)
 
+out_file_head = os.path.basename(prms_file_name,).replace(
+    '.prms', str(tr_prms['SEED']))
+
 if sys.argv[-1] is '1':
-    print("Printing output to {}.txt".format(tr_prms['SEED']))
-    sys.stdout = WrapOut(True, str(tr_prms['SEED']) + '.txt')
+    print("Printing output to {}.txt".format(out_file_head))
+    sys.stdout = WrapOut(True, out_file_head + '.txt')
 else:
     sys.stdout = WrapOut(False)
 
@@ -120,15 +130,15 @@ for key in sorted(tr_prms.keys()):
 
 print("\nLoading the data ...")
 sys.stdout.forceflush()
-data_x = read_json_bz2(sys.argv[1])
-data_y = read_json_bz2(sys.argv[2])
+data_x = read_json_bz2(imgs_file_name)
+data_y = read_json_bz2(lbls_file_name)
 
-print("X (samples, dimension) Size : {} {}KB\n"
-      "Y (samples, dimension) Size : {} {}KB\n"
-      "X (min, max) : {} {}"
+print("X (samples, dimensions): {} {}KB\n"
+      "X (min, max) : {} {}\n"
+      "Y (samples, dimensions): {} {}KB\n"
       "Y (min, max) : {} {}".format(data_x.shape, data_x.nbytes // 1000,
-                                    data_y.shape, data_y.nbytes // 1000,
                                     data_x.min(), data_x.max(),
+                                    data_y.shape, data_y.nbytes // 1000,
                                     data_y.min(), data_y.max()))
 
 batch_sz = tr_prms['BATCH_SZ']
@@ -141,8 +151,9 @@ test_x = share(data_x[n_train:, ])
 trin_y = share(data_y[:n_train, ], 'int32')
 test_y = share(data_y[n_train:, ], 'int32')
 
-if len(sys.argv) > 4:
-    data_aux = read_json_bz2(sys.argv[4])/layers[0][1]['img_sz']
+if aux_file_name:
+    data_aux = read_json_bz2(aux_file_name)
+    #Can normalize the aux data by division   /layers[0][1]['img_sz']
     trin_aux = share(data_aux[:n_train, ])
     test_aux = share(data_aux[n_train:, ])
 else:
@@ -192,7 +203,7 @@ def get_test_indices(tot_samps, bth_samps=tr_prms['TEST_SAMP_SZ']):
 
 test_indices = get_test_indices(te_corpus_sz)
 trin_indices = get_test_indices(tr_corpus_sz)
-pickle_file_name = str(tr_prms['SEED']) + '.pkl'
+pickle_file_name = out_file_head + '.pkl'
 
 
 def do_test():
@@ -220,6 +231,7 @@ for epoch in range(nEpochs):
         total_cost += output[0]
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
+        # print(map(borrow, nn.tr_layers[-1].params[2:6]))
         print("{:3d} {:>8.2f}".format(nn.get_epoch(), total_cost), end='    ')
         t = time()
         do_test()
