@@ -5,7 +5,7 @@
             'img_sz'        :48,
             'zoom'          :1.1,
             'magnitude'     :48,
-            'sigma'         :8,
+            'sigma'         :12,
             'pflip'         :.02,
             }),
         # ('InputLayer', {

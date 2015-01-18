@@ -1,20 +1,22 @@
 {
 "layers" : [
         ('ElasticLayer', {
-            'translation'   :3,
+            'translation'   :2,
             'zoom'          :1.1,
             'magnitude'     :60,
             'sigma'         :15,
             'pflip'         :.02,
+            'nearest'       :True,
+            'invert_image'  :True,
             }),
         ('ConvPoolLayer', {
-            'num_maps'      :5,
+            'num_maps'      :6,
             'filter_sz'     :3,
             'stride'        :1,
             'pool_sz'       :2,
             }),
         ('ConvPoolLayer', {
-            'num_maps'      :25,
+            'num_maps'      :24,
             'filter_sz'     :3,
             'stride'        :1,
             'pool_sz'       :2,
@@ -35,7 +37,7 @@
 ],
 
 "training_params" : {
-    # 'SEED'  : 444444,
+    'SEED'  : 555555,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,

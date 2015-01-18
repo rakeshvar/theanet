@@ -1,11 +1,13 @@
 {
 "layers" : [
 		('ElasticLayer', {
-			'translation'	:9,
+			'translation'	:2,
             'zoom'          :1.1,
-            'magnitude'     :50,
-            'sigma'         :12,
-            'pflip'         :.01,
+            'magnitude'     :60,
+            'sigma'         :15,
+            'pflip'         :.02,
+            'nearest'       :True,
+            'invert_image'  :True,
 			}),
 		('ConvPoolLayer', {
 			'num_maps' 		:4,

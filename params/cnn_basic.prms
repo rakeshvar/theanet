@@ -1,11 +1,11 @@
 {
 "layers" : [
         ('ElasticLayer', {
-            'translation'   :3,
+            'translation'   :2,
             'zoom'          :1.1,
             'magnitude'     :60,
             'sigma'         :15,
-            'pflip'         :.0,
+            'pflip'         :.02,
             'nearest'       :True,
             'invert_image'  :True,
             }),
