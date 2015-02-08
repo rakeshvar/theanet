@@ -3,17 +3,17 @@ import numpy as np
 import theano
 import theano.tensor as tt
 
-import theanet.layer
-from .layer.weights import borrow
-from .layer import InputLayer, ElasticLayer, HiddenLayer, ConvPoolLayer
-from .layer import SoftmaxLayer, CenteredOutLayer, AuxConcatLayer, \
-    SoftAuxLayer
-
 import layer
 from layer.weights import borrow
 from layer import InputLayer, ElasticLayer, HiddenLayer, ConvPoolLayer
 from layer import SoftmaxLayer, CenteredOutLayer, AuxConcatLayer, \
     SoftAuxLayer
+
+# import layer
+# from layer.weights import borrow
+# from layer import InputLayer, ElasticLayer, HiddenLayer, ConvPoolLayer
+# from layer import SoftmaxLayer, CenteredOutLayer, AuxConcatLayer, \
+#     SoftAuxLayer
 
 # theano.config.optimizer = 'fast_compile'
 # theano.config.exception_verbosity = "high"
