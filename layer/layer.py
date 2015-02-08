@@ -1,6 +1,6 @@
 import theano as th
 import theano.tensor as tt
-from weights import borrow
+from .weights import borrow
 
 float_x = th.config.floatX
 ###############################################################################
@@ -60,4 +60,4 @@ class Layer(object):
         return self.representation
 
     def get_wts(self):
-        return map(borrow, self.params)
+        return [borrow(p) for p in self.params]

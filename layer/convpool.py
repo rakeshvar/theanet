@@ -3,9 +3,9 @@ import numpy as np
 import theano as th
 import theano.tensor.nnet.conv as nnconv
 from theano.tensor.signal import downsample
-from layer import Layer, activation_by_name
+from .layer import Layer, activation_by_name
 
-from weights import init_wb, borrow
+from .weights import init_wb, borrow
 
 float_x = th.config.floatX
 # ############################## ConvPool Layer ################################
@@ -36,7 +36,7 @@ class ConvPoolLayer(Layer):
             conv_pool + self.b.dimshuffle('x', 0, 'x', 'x'))
 
         # Calculate output shape
-        self.out_sz = (in_sz - filter_sz + 1) / (stride * pool_sz)
+        self.out_sz = (in_sz - filter_sz + 1) // (stride * pool_sz)
 
         # Store Parameters
         self.params = [self.W, self.b]

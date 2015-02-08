@@ -1,52 +1,52 @@
 {
 "layers" : [
-		('ElasticLayer', {
-			'translation'	:2,
+        ('ElasticLayer', {
+            'translation'   :2,
             'zoom'          :1.1,
             'magnitude'     :60,
             'sigma'         :15,
             'pflip'         :.02,
             'nearest'       :True,
             'invert_image'  :True,
-			}),
-		('ConvPoolLayer', {
-			'num_maps' 		:4,
-			'filter_sz'		:3,
-			'stride'		:1,
-			'pool_sz'		:2,
-			'actvn'			:"tanh",
-			}),
-		('ConvPoolLayer', {
-			'num_maps' 		:20,
-			'filter_sz'		:3,
-			'stride'		:1,
-			'pool_sz'		:2,
-			'actvn'			:"relu",
-			}),
-		('HiddenLayer', {
-			'n_out'			:500,
-			'pdrop'			:.5,
-			}),
-		('SoftmaxLayer', {
-			'n_out'			:10,
-			}),
+            }),
+        ('ConvPoolLayer', {
+            'num_maps'      :4,
+            'filter_sz'     :3,
+            'stride'        :1,
+            'pool_sz'       :2,
+            'actvn'         :"tanh",
+            }),
+        ('ConvPoolLayer', {
+            'num_maps'      :20,
+            'filter_sz'     :3,
+            'stride'        :1,
+            'pool_sz'       :2,
+            'actvn'         :"relu",
+            }),
+        ('HiddenLayer', {
+            'n_out'         :500,
+            'pdrop'         :.5,
+            }),
+        ('SoftmaxLayer', {
+            'n_out'         :10,
+            }),
 ],
 
 "training_params" : {
-    'BATCH_SZ'	 :20,
-	'NUM_EPOCHS' : 201,
-	'TRAIN_ON_FRACTION' : .75,
-	'EPOCHS_TO_TEST' : 4,
-	'TEST_SAMP_SZ': 1000,
+    'BATCH_SZ'   :20,
+    'NUM_EPOCHS' : 201,
+    'TRAIN_ON_FRACTION' : .75,
+    'EPOCHS_TO_TEST' : 4,
+    'TEST_SAMP_SZ': 1000,
     'DEFORM'    : 'none',
     'DFM_PRMS' : {},
 
-	'MOMENTUM' : .95,
-	'SEED'	: 90909,
-	'INIT_LEARNING_RATE': .1,
-	'EPOCHS_TO_HALF_RATE':	12,
-	'LAMBDA1': 0.,
-	'LAMBDA2': 0.0001,
-	'MAXNORM': 3,
+    'MOMENTUM' : .95,
+    'SEED'  : 90909,
+    'INIT_LEARNING_RATE': .1,
+    'EPOCHS_TO_HALF_RATE':  12,
+    'LAMBDA1': 0.,
+    'LAMBDA2': 0.0001,
+    'MAXNORM': 3,
 },
 }

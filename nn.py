@@ -1,13 +1,12 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 from datetime import datetime
 from operator import mul
 import os
 from time import time
 
 import ast
-import cPickle
+import pickle
 import numpy as np
 import sys
 from neuralnet import NeuralNet
@@ -17,10 +16,10 @@ from theano import shared, config
 
 
 def read_json_bz2(path2data):
-    import bz2, json, contextlib
+    import bz2, json, contextlib, codecs
 
-    with contextlib.closing(bz2.BZ2File(path2data, 'rb')) as fdata:
-        return np.array(json.load(fdata))
+    with contextlib.closing(bz2.BZ2File(path2data, 'r')) as fdata:
+        return np.array(json.load(codecs.getreader("utf-8")(fdata)))
 
 
 def share(data, dtype=config.floatX, borrow=True):
@@ -73,18 +72,19 @@ else:
 
 ##########################################  Import Parameters
 
-with open(prms_file_name, 'rb') as f:
-    if prms_file_name.endswith('.pkl'):
-        params = cPickle.load(f)
-    else:
+if prms_file_name.endswith('.pkl'):
+    with open(prms_file_name, 'rb') as f:
+        params = pickle.load(f)
+else:
+    with open(prms_file_name, 'r') as f:
         params = ast.literal_eval(f.read())
 
-    layers = params['layers']
-    tr_prms = params['training_params']
-    try:
-        allwts = params['allwts']
-    except KeyError:
-        allwts = None
+layers = params['layers']
+tr_prms = params['training_params']
+try:
+    allwts = params['allwts']
+except KeyError:
+    allwts = None
 
 # # Init SEED
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
@@ -114,12 +114,15 @@ for lyr in layers:
 
 ## Print sizes of weights
 if allwts:
-    shp = [[w.shape for w in ww] for ww in allwts]
-    typ = [[w.dtype for w in ww] for ww in allwts]
-    nwts = sum([sum([reduce(mul, w) for w in ww]) for ww in shp])
-    print('\nTotal Number of Weights : {}'.format(nwts))
-    for sh, tp in zip(shp, typ):
-        print('                          |- {}'.format(zip(sh, tp)))
+    from functools import reduce
+    print("\nWeights")
+    nwts = 0
+    for l, ww in enumerate(allwts):
+        print("Layer {}:".format(l))
+        for w in ww:
+            nwts += reduce(mul, w.shape)
+            print('\t', w.shape, w.dtype)
+    print('Total Number of Weights : {}'.format(nwts))
 
 ## Print Training Parameters
 print('\nTraing Parameters: ')
@@ -208,15 +211,15 @@ pickle_file_name = out_file_head + '.pkl'
 
 def do_test():
     test_err, aux_test_err = test_wrapper(test_fn_te(i)
-                                          for i in test_indices.next())
+                                          for i in next(test_indices))
     trin_err, aux_trin_err = test_wrapper(test_fn_tr(i)
-                                          for i in trin_indices.next())
+                                          for i in next(trin_indices))
     print("{:5.2f}%  ({:5.2f}%)      {:5.2f}%  ({:5.2f}%)".format(
         trin_err, aux_trin_err, test_err, aux_test_err))
     sys.stdout.forceflush()
 
     with open(pickle_file_name, 'wb') as pkl_file:
-        cPickle.dump(nn.get_init_params(), pkl_file, -1)
+        pickle.dump(nn.get_init_params(), pkl_file, -1)
 
 
 ############################################ Training Loop

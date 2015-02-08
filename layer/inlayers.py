@@ -3,7 +3,7 @@ import numpy as np
 import theano as th
 import theano.tensor as tt
 import theano.tensor.signal.conv as sigconv
-from layer import Layer
+from .layer import Layer
 
 float_x = th.config.floatX
 # ############################## Input Layer  ##################################

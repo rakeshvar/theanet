@@ -35,7 +35,7 @@
 ],
 
 "training_params" : {
-    'SEED'  : 555555,
+    #'SEED'  : 555555,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,

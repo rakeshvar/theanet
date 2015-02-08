@@ -1,11 +1,11 @@
 import numpy as np
 import theano as th
 import theano.tensor as tt
-from hidden import HiddenLayer
-from layer import Layer, activation_by_name
-from outlayers import OutputLayer
+from .hidden import HiddenLayer
+from .layer import Layer, activation_by_name
+from .outlayers import OutputLayer
 
-from weights import init_wb, borrow
+from .weights import init_wb, borrow
 
 float_x = th.config.floatX
 
@@ -117,8 +117,8 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                                    n_aux_out + n_out, n_aux_out + n_out,
                                    'relu', 'SoftAuxCross')
 
-        self.hidden_ouput = self.output #* 0.0 + cross_b
-        self.output = tt.nnet.softmax(self.hidden_ouput +
+        self.hidden_ouput = self.output # * 0.0
+        self.output = tt.nnet.softmax(self.hidden_ouput + cross_b +
                                       tt.dot(aux_info.output, cross_w))
 
         self.aux_inpt = aux_info.aux_inpt

@@ -1,7 +1,7 @@
 import theano as th
 import theano.tensor as tt
-from layer import Layer, activation_by_name
-from weights import init_wb, borrow
+from .layer import Layer, activation_by_name
+from .weights import init_wb, borrow
 
 float_x = th.config.floatX
 ############################### Hidden Layer  ##################################
