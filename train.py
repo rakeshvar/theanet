@@ -9,8 +9,9 @@ import ast
 import pickle
 import numpy as np
 import sys
-from neuralnet import NeuralNet
 from theano import shared, config
+
+from theanet.neuralnet import NeuralNet
 
 # ############################### HELPER FUNCTIONS ############################
 
