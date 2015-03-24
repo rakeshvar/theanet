@@ -24,15 +24,19 @@ class Activation:
         return self.name
 
 
-scaled_tanh = Activation(lambda x: 1.7 * tt.tanh(2 * x / 3), 'scaled_tanh')
-tanh = Activation(lambda x: tt.tanh(x), 'tanh')
-relu = Activation(lambda x: tt.maximum(0, x), 'relu')
-linear = Activation(lambda x: x, 'linear')
-
-activation_list = (scaled_tanh, relu, linear,
-                   tt.nnet.sigmoid, tanh,
-                   tt.nnet.softplus, tt.nnet.softmax)
-
+activation_list = [
+    tt.nnet.sigmoid,
+    tt.nnet.softplus,
+    tt.nnet.softmax,
+    Activation(lambda x: x, 'linear'),
+    Activation(lambda x: 1.7*tt.tanh(2 * x / 3), 'scaled_tanh'),
+    Activation(lambda x: tt.maximum(0, x), 'relu'),
+    Activation(lambda x: tt.tanh(x), 'tanh'),
+] + [
+    Activation(lambda x, i=i: tt.maximum(0, x) + tt.minimum(0, x) * i/100,
+               'relu{:02d}'.format(i))
+    for i in range(100)
+]
 
 def activation_by_name(name):
     """
@@ -44,7 +48,7 @@ def activation_by_name(name):
         if name == str(act):
             return act
     else:
-        raise NotImplementedError
+        raise NotImplementedError("Unknown Activation Specified: " + name)
 
 
 ###############################################################################
@@ -61,3 +65,41 @@ class Layer(object):
 
     def get_wts(self):
         return [borrow(p) for p in self.params]
+
+    def get_updates(self, cost, rate):
+        if not hasattr(self, "reg"):
+            return []
+
+        if not self.reg['rel_rate']:
+            return []
+
+        updates = []
+        for param in self.params:
+            update = th.shared(borrow(param) * 0.,
+                               broadcastable=param.broadcastable)
+            updated_update = self.reg['momentum'] * update + \
+                             (1. - self.reg['momentum']) * tt.grad(cost, param)
+            updates.append((update, updated_update))
+
+            updated_param = param - self.reg['rel_rate'] * rate * update
+
+            if borrow(param).ndim == 2 and self.reg['maxnorm']:
+                col_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=0))
+                desired_norms = tt.clip(col_norms, 0, self.reg['maxnorm'])
+                scale = (1e-7 + desired_norms) / (1e-7 + col_norms)
+                updates.append((param, updated_param * scale))
+
+            else:
+                updates.append((param, updated_param))
+
+        return updates
+
+    def get_wtcost(self):
+        try:
+            return self.reg['L1'] * \
+                   sum(abs(t).sum() for t in self.params) + \
+                   self.reg['L2'] * \
+                   sum((t**2).sum() for t in self.params)
+
+        except AttributeError:
+            return 0

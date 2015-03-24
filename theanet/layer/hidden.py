@@ -15,8 +15,13 @@ def drop_output(output, pdrop, rand_gen):
 
 
 class HiddenLayer(Layer):
-    def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None, pdrop=0,
-                 actvn='softplus'):
+    def __init__(self, inpt, wts,
+                 rand_gen=None,
+                 n_in=None,
+                 n_out=None,
+                 pdrop=0,
+                 actvn='relu01',
+                 reg=()):
         assert wts is not None or rand_gen is not None
 
         try:
@@ -37,8 +42,16 @@ class HiddenLayer(Layer):
         self.n_in, self.n_out = n_in, n_out
         self.actvn = actvn
         self.pdrop = pdrop
-        self.representation = "Hidden In:{:3d} Out:{:3d} Act:{} Drop%:{}". \
-            format(n_in, n_out, actvn, pdrop)
+        self.reg = {"L1": 0, "L2": 0,
+                    "momentum": .95,
+                    "maxnorm": 0,
+                    "rel_rate": 1}
+        self.reg.update(reg)
+
+        self.representation = (
+            "Hidden In:{:3d} Out:{:3d} Act:{} Drop%:{}"
+            "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} "
+            "Rate:{rel_rate}".format(n_in, n_out, actvn, pdrop, **self.reg))
 
     def TestVersion(self, inpt):
         test_version = HiddenLayer(inpt, (self.w, self.b),

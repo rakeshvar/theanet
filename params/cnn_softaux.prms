@@ -5,7 +5,7 @@
             'zoom'          :1.1,
             'magnitude'     :60,
             'sigma'         :15,
-            'pflip'         :.02,
+            'pflip'         :0.05,
             'nearest'       :True,
             'invert_image'  :True,
             }),
@@ -14,23 +14,25 @@
             'filter_sz'     :3,
             'stride'        :1,
             'pool_sz'       :2,
+            'actvn'         :'relu50',
             }),
         ('ConvPoolLayer', {
             'num_maps'      :24,
             'filter_sz'     :3,
             'stride'        :1,
             'pool_sz'       :2,
-            'actvn'         :"relu",
+            'actvn'         :'relu20',
             }),
         ('HiddenLayer', {
             'n_out'         :1000,
             'pdrop'         :.5,
-            'actvn'         :'relu',
+            'reg'           : {'L2':.001, 'maxnorm':0},
             }),
         ('SoftAuxLayer', {
             'n_aux'         :(7, 7),
             'aux_type'      :"LocationInfo",
             'n_out'         :457,
+            'reg'           : {'L2':.001, 'maxnorm':0},
             }),
 ],
 
@@ -42,11 +44,7 @@
     'EPOCHS_TO_TEST' : 1,
     'TEST_SAMP_SZ': 5000,
 
-    'MOMENTUM' : .95,
     'INIT_LEARNING_RATE': .1,
     'EPOCHS_TO_HALF_RATE':  1,
-    'LAMBDA1': 0.0,
-    'LAMBDA2': 0.001,
-    'MAXNORM': 3.5,
 },
 }

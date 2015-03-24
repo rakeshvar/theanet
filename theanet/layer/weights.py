@@ -40,7 +40,7 @@ def init_wb(wb, rand_gen,
 
         if actvn == 'sigmoid':
             w_values *= 4
-        if actvn in ('relu', 'softplus'):
+        if actvn == 'softplus' or actvn.startswith('relu'):
             b_values += 1
 
     elif type(wb[0]) is np.ndarray:

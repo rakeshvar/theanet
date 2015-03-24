@@ -207,10 +207,11 @@ def get_test_indices(tot_samps, bth_samps=tr_prms['TEST_SAMP_SZ']):
 
 test_indices = get_test_indices(te_corpus_sz)
 trin_indices = get_test_indices(tr_corpus_sz)
-pickle_file_name = out_file_head + '.pkl'
-
+pickle_file_name = out_file_head + '_{:02.0f}.pkl'
+saved_file_name = None
 
 def do_test():
+    global saved_file_name
     test_err, aux_test_err = test_wrapper(test_fn_te(i)
                                           for i in next(test_indices))
     trin_err, aux_trin_err = test_wrapper(test_fn_tr(i)
@@ -219,8 +220,13 @@ def do_test():
         trin_err, aux_trin_err, test_err, aux_test_err))
     sys.stdout.forceflush()
 
-    with open(pickle_file_name, 'wb') as pkl_file:
+    if saved_file_name:
+        os.remove(saved_file_name)
+
+    saved_file_name = pickle_file_name.format(test_err)
+    with open(saved_file_name, 'wb') as pkl_file:
         pickle.dump(nn.get_init_params(), pkl_file, -1)
+    
 
 
 ############################################ Training Loop

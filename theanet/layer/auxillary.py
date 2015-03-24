@@ -1,11 +1,10 @@
-import numpy as np
 import theano as th
 import theano.tensor as tt
 from .hidden import HiddenLayer
 from .layer import Layer, activation_by_name
 from .outlayers import OutputLayer
 
-from .weights import init_wb, borrow
+from .weights import init_wb
 
 float_x = th.config.floatX
 
@@ -33,7 +32,7 @@ class LocationInfo():
         n_aux_hid, n_aux_out = n_aux
 
         # First Layer
-        actvn1 = "softplus"
+        actvn1 = "relu50"
         loc1_wts = None if wts is None else wts[:2]
         loc1_w, loc1_b = init_wb(loc1_wts, rand_gen,
                                  (2, n_aux_hid), n_aux_hid,
@@ -43,7 +42,7 @@ class LocationInfo():
                                               loc1_b)
 
         # Second Layer
-        actvn2 = "linear"
+        actvn2 = "relu10"
         loc2_wts = None if wts is None else wts[2:]
         loc2_w, loc2_b = init_wb(loc2_wts, rand_gen,
                                  (n_aux_hid, n_aux_out), n_aux_out,
@@ -99,11 +98,12 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                  rand_gen,
                  n_in, n_out, n_aux,
                  aux_type,
+                 reg=(),
                  test_version=False):
 
         hidden_wts = None if wts is None else wts[:2]
         HiddenLayer.__init__(self, inpt, hidden_wts, rand_gen, n_in, n_out,
-                             actvn='linear',
+                             actvn='linear', reg=reg,
                              pdrop=0)
 
         aux_wts = None if wts is None else wts[2:6]
@@ -115,9 +115,9 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         cross_w, cross_b = init_wb(cross_wts, rand_gen,
                                    (n_aux_out, n_out), n_out,
                                    n_aux_out + n_out, n_aux_out + n_out,
-                                   'relu', 'SoftAuxCross')
+                                   'softmax', 'SoftAuxCross')
 
-        self.hidden_ouput = self.output # * 0.0
+        self.hidden_ouput = self.output
         self.output = tt.nnet.softmax(self.hidden_ouput + cross_b +
                                       tt.dot(aux_info.output, cross_w))
 
@@ -128,7 +128,8 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         self.params += aux_info.params
         self.params += [cross_w, cross_b]
         self.representation = "SoftAux In:{:3d} Aux:{} Out:{:3d}" \
-                              "".format(n_in, n_aux, n_out,)
+            "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
+            "Rate:{rel_rate}".format(n_in, n_aux, n_out, **self.reg)
 
         #############################################################
         self.y_preds = tt.argmax(self.output, axis=1)

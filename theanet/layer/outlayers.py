@@ -30,17 +30,18 @@ class OutputLayer(object):
 
 
 class SoftmaxLayer(HiddenLayer, OutputLayer):
-    def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None):
+    def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None, reg=()):
         HiddenLayer.__init__(self, inpt, wts, rand_gen, n_in, n_out,
-                             actvn='Softmax',
+                             actvn='Softmax', reg=reg,
                              pdrop=0)
         self.y_preds = tt.argmax(self.output, axis=1)
         self.probs = self.output
         self.logprob = tt.log(self.probs)
         self.features = self.logprob
         self.kind = 'SOFTMAX'
-        self.representation = 'Softmax In:{:3d} Out:{:3d}'.format(self.n_in,
-                                                                  self.n_out)
+        self.representation = "Softmax In:{:3d} Out:{:3d}" \
+            "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
+            "Rate:{rel_rate}""".format(self.n_in, self.n_out, **self.reg)
 
     def TestVersion(self, inpt):
         return SoftmaxLayer(inpt, (self.w, self.b))
@@ -52,7 +53,8 @@ activs = {'LOGIT': 'sigmoid', 'RBF': 'scaled_tanh'}
 class CenteredOutLayer(HiddenLayer, OutputLayer):
     def __init__(self, inpt, wts, centers, rand_gen=None,
                  n_in=None, n_features=None, n_classes=None,
-                 kind='LOGIT', learn_centers=False, junk_dist=np.inf):
+                 kind='LOGIT', learn_centers=False, junk_dist=np.inf,
+                 reg=()):
         # wts (n_in x n_features)
         # centers (n_classesx n_features)
 
@@ -63,7 +65,7 @@ class CenteredOutLayer(HiddenLayer, OutputLayer):
         assert kind == 'RBF' or not learn_centers
 
         HiddenLayer.__init__(self, inpt, wts, rand_gen, n_in, n_out=n_features,
-                             actvn=activs[kind], pdrop=0)
+                             actvn=activs[kind], pdrop=0, reg=reg)
 
         # Initialize centers
         if centers is None:

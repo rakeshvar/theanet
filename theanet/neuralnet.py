@@ -44,8 +44,10 @@ class NeuralNet():
         ilayer = 0
         if layers[0][0] == 'InputLayer':
             tr_layers.append(InputLayer(x, **layers[0][1]))
+
         elif layers[0][0] == 'ElasticLayer':
             tr_layers.append(ElasticLayer(x, **layers[0][1]))
+
         te_layers.append(tr_layers[0].TestVersion(test_x))
         ilayer += 1
 
@@ -53,6 +55,7 @@ class NeuralNet():
         while layers[ilayer][0] == 'ConvPoolLayer':
             prev_tr_layer = tr_layers[ilayer - 1]
             prev_te_layer = te_layers[ilayer - 1]
+
             tr_inpt = prev_tr_layer.output
             te_inpt = prev_te_layer.output
 
@@ -159,32 +162,17 @@ class NeuralNet():
         self.cur_learn_rate = theano.shared(np.cast[theano.config.floatX](0.0))
         self.set_rate()
 
-
     def get_trin_model(self, x_data, y_data, aux_data=None):
         # cost, training params, gradients, updates to those params
         print('Compiling training function...')
 
-        learn_prms = [prm for lyr in self.tr_layers for prm in lyr.params]
-        cost = self.tr_layers[-1].neg_log_likli(self.y) + \
-               self.tr_prms['LAMBDA1'] * sum(abs(t).sum() for t in learn_prms)+\
-               self.tr_prms['LAMBDA2'] * sum((t**2).sum() for t in learn_prms)
+        cost = self.tr_layers[-1].neg_log_likli(self.y)
+        for lyr in self.tr_layers:
+            cost += lyr.get_wtcost()
 
         updates = []
-        for param in learn_prms:
-            param_update = theano.shared(borrow(param) * 0.,
-                                         broadcastable=param.broadcastable)
-            update_update = self.tr_prms['MOMENTUM'] * param_update + \
-                      (1. - self.tr_prms['MOMENTUM']) * tt.grad(cost, param)
-            stepped_param = param - self.cur_learn_rate * param_update
-            updates.append((param_update, update_update))
-
-            if borrow(param).ndim == 2:
-                col_norms = tt.sqrt(tt.sum(tt.sqr(stepped_param), axis=0))
-                desired_norms = tt.clip(col_norms, 0, self.tr_prms['MAXNORM'])
-                scale = (1e-7 + desired_norms) / (1e-7 + col_norms)
-                updates.append((param, stepped_param * scale))
-            else:
-                updates.append((param, stepped_param))
+        for lyr in self.tr_layers:
+            updates += lyr.get_updates(cost, self.cur_learn_rate)
 
         indx = tt.lscalar('training batch index')
         bth_sz = self.tr_prms['BATCH_SZ']
@@ -192,19 +180,17 @@ class NeuralNet():
         givens = {
             self.x: x_data[indx*bth_sz:(indx+1)*bth_sz],
             self.y: y_data[indx*bth_sz:(indx+1)*bth_sz], }
+
         if hasattr(self, 'aux_inpt_tr'):
             assert aux_data is not None, "Auxillary data not supplied"
-            givens[self.aux_inpt_tr] = \
-                aux_data[indx*bth_sz:(indx+1)*bth_sz]
+            givens[self.aux_inpt_tr] = aux_data[indx*bth_sz:(indx+1)*bth_sz]
 
         return theano.function([indx],
                                [cost,
                                 self.tr_layers[-1].features,
-                                self.tr_layers[-1].logprob,
-                                ],
+                                self.tr_layers[-1].logprob],
                                updates=updates,
                                givens=givens)
-
 
     def get_test_model(self, x_data, y_data, aux_data=None, preds_feats=False):
         print('Compiling testing function... ')
@@ -245,22 +231,18 @@ class NeuralNet():
                 "training_params": self.tr_prms,
                 "allwts": [l.get_wts() for l in self.tr_layers]}
 
-
     def set_rate(self):
         self.cur_learn_rate.set_value(
             self.tr_prms['INIT_LEARNING_RATE'] /
             (1 + self.tr_prms['CUR_EPOCH'] / self.tr_prms[
                 'EPOCHS_TO_HALF_RATE']))
 
-
     def inc_epoch_set_rate(self):
         self.tr_prms['CUR_EPOCH'] += 1
         self.set_rate()
 
-
     def get_epoch(self):
         return self.tr_prms['CUR_EPOCH']
-
 
     def __str__(self):
         prmstr = '; '.join([', '.join([str(prm) for prm in lyr.params])
