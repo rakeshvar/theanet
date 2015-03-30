@@ -52,8 +52,6 @@ def activation_by_name(name):
 
 
 ###############################################################################
-#   A bunch of Layers
-###############################################################################
 
 class Layer(object):
     """
@@ -70,7 +68,7 @@ class Layer(object):
         if not hasattr(self, "reg"):
             return []
 
-        if not self.reg['rel_rate']:
+        if not self.reg['rate']:
             return []
 
         updates = []
@@ -81,7 +79,7 @@ class Layer(object):
                              (1. - self.reg['momentum']) * tt.grad(cost, param)
             updates.append((update, updated_update))
 
-            updated_param = param - self.reg['rel_rate'] * rate * update
+            updated_param = param - self.reg['rate'] * rate * update
 
             if borrow(param).ndim == 2 and self.reg['maxnorm']:
                 col_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=0))

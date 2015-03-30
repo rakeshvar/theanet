@@ -129,7 +129,7 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         self.params += [cross_w, cross_b]
         self.representation = "SoftAux In:{:3d} Aux:{} Out:{:3d}" \
             "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
-            "Rate:{rel_rate}".format(n_in, n_aux, n_out, **self.reg)
+            "Rate:{rate}".format(n_in, n_aux, n_out, **self.reg)
 
         #############################################################
         self.y_preds = tt.argmax(self.output, axis=1)

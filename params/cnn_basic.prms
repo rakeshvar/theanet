@@ -15,6 +15,7 @@
             'stride'        :1,
             'pool_sz'       :2,
             'reg'			: {'L2':.001,},
+            'actvn'         :'relu50',
             }),
         ('ConvPoolLayer', {
             'num_maps'      :24,
@@ -23,16 +24,18 @@
             'pool_sz'       :2,
             'reg'			: {'L2':.001,},
             'actvn'         :"relu",
+            'actvn'         :'relu20',
             }),
         ('HiddenLayer', {
             'n_out'         :1000,
             'pdrop'         :.5,
             'actvn'         :'relu',
-            'reg'			: {'L2':.001, 'maxnorm':5},
+            'reg'			: {'L2':.001, 'maxnorm':0},
+            'actvn'         :'relu05',
             }),
         ('SoftmaxLayer', {
             'n_out'         :457,
-            'reg'			: {'L2':.001, 'maxnorm':5},
+            'reg'			: {'L2':.001, 'maxnorm':0},
             }),
 #       ('CenteredOutLayer', {
 #           'centers'       :None,
@@ -45,7 +48,7 @@
 ],
 
 "training_params" : {
-    'SEED'  : 555555,
+    #'SEED'  : 555555,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,

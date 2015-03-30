@@ -45,13 +45,13 @@ class HiddenLayer(Layer):
         self.reg = {"L1": 0, "L2": 0,
                     "momentum": .95,
                     "maxnorm": 0,
-                    "rel_rate": 1}
+                    "rate": 1}
         self.reg.update(reg)
 
         self.representation = (
             "Hidden In:{:3d} Out:{:3d} Act:{} Drop%:{}"
             "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} "
-            "Rate:{rel_rate}".format(n_in, n_out, actvn, pdrop, **self.reg))
+            "Rate:{rate}".format(n_in, n_out, actvn, pdrop, **self.reg))
 
     def TestVersion(self, inpt):
         test_version = HiddenLayer(inpt, (self.w, self.b),

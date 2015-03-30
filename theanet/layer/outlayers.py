@@ -41,7 +41,7 @@ class SoftmaxLayer(HiddenLayer, OutputLayer):
         self.kind = 'SOFTMAX'
         self.representation = "Softmax In:{:3d} Out:{:3d}" \
             "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
-            "Rate:{rel_rate}""".format(self.n_in, self.n_out, **self.reg)
+            "Rate:{rate}""".format(self.n_in, self.n_out, **self.reg)
 
     def TestVersion(self, inpt):
         return SoftmaxLayer(inpt, (self.w, self.b))

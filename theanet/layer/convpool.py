@@ -44,14 +44,14 @@ class ConvPoolLayer(Layer):
         self.inpt = inpt
         self.num_maps = num_maps
         self.n_out = num_maps * self.out_sz ** 2
-        self.reg = {"L1": 0, "L2":0, "momentum":.95, "rel_rate":1}
+        self.reg = {"L1": 0, "L2":0, "momentum":.95, "rate":1}
         self.reg.update(reg)
 
         self.args = (batch_sz, num_prev_maps, in_sz,
                      num_maps, filter_sz, stride, pool_sz, actvn, reg)
         self.representation = (
             "ConvPool Maps:{:2d} Filter:{} Stride:{} Pool:{} Output:{:2d} "
-            "Act:{}\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Rate:{rel_rate}"
+            "Act:{}\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Rate:{rate}"
             "".format(num_maps, filter_sz, stride, pool_sz, self.out_sz,
                       actvn, **self.reg))
 

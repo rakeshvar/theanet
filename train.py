@@ -1,14 +1,12 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-from datetime import datetime
-from operator import mul
-import os
-from time import time
-
 import ast
 import pickle
 import numpy as np
+import os
 import sys
+from datetime import datetime
+from operator import mul
 from theano import shared, config
 
 from theanet.neuralnet import NeuralNet
@@ -17,10 +15,11 @@ from theanet.neuralnet import NeuralNet
 
 
 def read_json_bz2(path2data):
-    import bz2, json, contextlib, codecs
-
-    with contextlib.closing(bz2.BZ2File(path2data, 'r')) as fdata:
-        return np.array(json.load(codecs.getreader("utf-8")(fdata)))
+    import bz2, json
+    bz2_fp = bz2.BZ2File(path2data, 'r')
+    data = np.array(json.loads(bz2_fp.read().decode('utf-8')))
+    bz2_fp.close()
+    return data
 
 
 def share(data, dtype=config.floatX, borrow=True):
@@ -210,6 +209,7 @@ trin_indices = get_test_indices(tr_corpus_sz)
 pickle_file_name = out_file_head + '_{:02.0f}.pkl'
 saved_file_name = None
 
+
 def do_test():
     global saved_file_name
     test_err, aux_test_err = test_wrapper(test_fn_te(i)
@@ -241,11 +241,8 @@ for epoch in range(nEpochs):
         total_cost += output[0]
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
-        # print(map(borrow, nn.tr_layers[-1].params[2:6]))
         print("{:3d} {:>8.2f}".format(nn.get_epoch(), total_cost), end='    ')
-        t = time()
         do_test()
-        test_time = time() - t
 
     nn.inc_epoch_set_rate()
 
