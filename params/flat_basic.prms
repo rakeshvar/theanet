@@ -1,12 +1,14 @@
 {
 "layers":[
         ('ElasticLayer', {
-            'translation'   :3,
-            'img_sz'        :48,
+            'translation'   :2,
             'zoom'          :1.1,
-            'magnitude'     :48,
-            'sigma'         :12,
-            'pflip'         :.02,
+            'magnitude'     :60,
+            'sigma'         :15,
+            'pflip'         :0.03,
+            'angle'         :5,
+            'nearest'       :True,
+            'invert_image'  :True,
             }),
 #       ('InputLayer', {
 #           }),

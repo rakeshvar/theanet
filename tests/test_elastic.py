@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import ast
 import sys
 from PIL import Image as im
@@ -8,33 +6,39 @@ import matplotlib.pyplot as plt
 import numpy as np
 import theano.tensor as tt
 from theano import shared, config, function
-from layer import ElasticLayer
+from theanet.layer import ElasticLayer
 
+config.exception_verbosity = 'high'
+config.optimizer = 'fast_compile'
+np.set_printoptions(precision=2)
 ############################################## Helpers
 
 
-def read_json_bz2(path2data):
-    import bz2, json, contextlib
-    with contextlib.closing(bz2.BZ2File(path2data, 'rb')) as fdata:
-        return np.array(json.load(fdata), dtype=config.floatX)
+def read_json_bz2(path2data, dtype=config.floatX):
+    import bz2, json
+    bz2_fp = bz2.BZ2File(path2data, 'r')
+    data = np.array(json.loads(bz2_fp.read().decode('utf-8')), dtype=dtype)
+    bz2_fp.close()
+    return data
 
 
 def share(data, dtype=config.floatX):
     return shared(np.asarray(data, dtype), borrow=True)
 
 
-def pprint(x):
-    for r in x:
+def pprint(slab):
+    for r in slab:
+        print(end='|')
         for val in r:
-            if val < 0:      print('+', end='')
-            elif val == 0:   print('#', end='')
-            elif val < .25:  print('@', end='')
-            elif val < .5:   print('O', end='')
-            elif val < .75:  print('o', end='')
-            elif val < 1.0:  print('.', end='')
-            elif val == 1.:  print(' ', end='')
-            else:            print('-', end='')
-        print()
+            if   val < 0.0:  print('-', end='')
+            elif val == 0.:  print(' ', end='')
+            elif val < .15:  print('·', end=''),
+            elif val < .35:  print('░', end=''),
+            elif val < .65:  print('▒', end=''),
+            elif val < .85:  print('▓', end=''),
+            elif val <= 1.:  print('█', end=''),
+            else:            print('+', end='')
+        print('|')
 
 
 def stack(imgs3d):
@@ -44,7 +48,7 @@ def stack(imgs3d):
 
 if len(sys.argv) < 3:
     print("Usage:\n"
-          "{} data.images.bz2 nnet_params.prms".format(sys.argv[0]))
+          "{} data.images.bz2 nnet_params.prms [begin_at]".format(sys.argv[0]))
     sys.exit(-1)
 
 data_file = sys.argv[1]
@@ -77,19 +81,23 @@ print("Images (samples, dimension) Size : {} {}KB\n"
 imgs = share(data_x)
 x_sym = tt.tensor3('x')
 deform_layer = ElasticLayer(x_sym, **layers[0][1])
-deform_fn = function([x_sym], [deform_layer.output, deform_layer.trans])
+deform_fn = function([x_sym], deform_layer.debugout)
 print(deform_layer)
 
 ############################################## Perform deformation
 
 if begin is None:
     begin = np.random.randint(corpus_sz-batch_sz, size=1)[0]
-n_batches = 3
+n_batches = 10
 
 for index in range(begin, begin + n_batches * batch_sz, batch_sz):
-    df_imgs, trans = deform_fn(data_x[index:index+batch_sz])
+    df_imgs, trans, *debug = deform_fn(data_x[index:index+batch_sz])
+    for vec in debug:
+        print(vec.flatten(), end=', ')
+
     if deform_layer.invert:
         df_imgs = 1 - df_imgs
+
     sidebyside = np.hstack((stack(data_x[index:index+batch_sz]),
                             stack(df_imgs)))
 
@@ -97,5 +105,7 @@ for index in range(begin, begin + n_batches * batch_sz, batch_sz):
     scaled = (255*(1-sidebyside)).astype('uint8')
     im.fromarray(scaled).save(out_img)
 
-    plt.quiver(trans[0], trans[1])
+    plt.quiver(trans[1], trans[0])
     plt.savefig(out_img.replace('.bmp', '.png'))
+    plt.clf()
+    print("\nSaved ", out_img, out_img.replace('.bmp', '.png'))

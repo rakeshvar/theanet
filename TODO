@@ -5,12 +5,13 @@ Main
 ----
 13) Add Space/Null/Junk
 
-15) Move L1, L2, Maxnorm to Layers
-
 16) Add documentation for prms_files
 
 17) Create unit_test
 
+18) Make index & an "offset" arguments to the training function.
+    So that batches experience some mix.
+    Even better, specify a different permutation vector for each epoch.
 
 Secondary
 ---------

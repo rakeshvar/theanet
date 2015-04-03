@@ -26,8 +26,16 @@ class InputLayer(Layer):
 
 
 class ElasticLayer(Layer):
-    def __init__(self, inpt, img_sz, translation, zoom, magnitude, sigma,
-                 pflip, rand_gen=None, invert_image=False, nearest=False):
+    def __init__(self, inpt, img_sz,
+                 translation=0,
+                 zoom=1,
+                 magnitude=0,
+                 sigma=1,
+                 pflip=0,
+                 angle=0,
+                 rand_gen=None,
+                 invert_image=False,
+                 nearest=False):
         self.inpt = inpt
         self.img_sz = img_sz
         self.translation = translation
@@ -42,49 +50,74 @@ class ElasticLayer(Layer):
         self.n_out = self.num_maps * self.out_sz ** 2
         self.params = []
         self.representation = ('Elastic Maps:{:d} Size:{:2d} Translation:{:} '
-                               'Zoom:{} Mag:{:2d} Sig:{:2d} Invert:{} '
+                               'Zoom:{} Mag:{:2d} Sig:{:2d} Noise:{} '
+                               'Angle:{} Invert:{} '
                                'Interpolation: {}'.format(
             self.num_maps, img_sz,
             translation, zoom, magnitude, sigma,
-            invert_image,
+            pflip, angle, invert_image,
             'Nearest' if nearest else 'Linear'))
 
         if invert_image:
             inpt = 1 - inpt
 
         assert zoom > 0
-        if magnitude + translation + pflip == 0 and zoom == 1:
+        if not (magnitude or translation or pflip or angle) and zoom == 1:
             self.output = inpt
+            self.debugout = [self.output, tt.as_tensor_variable((0, 0))]
             return
 
         srs = tt.shared_randomstreams.RandomStreams(rand_gen.randint(1e6)
                                                     if rand_gen else None)
         h = w = img_sz
 
-        # Build a gaussian filter
-        var = sigma ** 2
-        filt = np.array([[np.exp(-.5 * (i * i + j * j) / var)
-                          for i in range(-sigma, sigma + 1)]
-                         for j in range(-sigma, sigma + 1)], dtype=float_x)
-        filt /= 2 * np.pi * var
+        # Humble as-is beginning
+        target = tt.as_tensor_variable(np.indices((h, w)))
 
-        # Build a transition grid as a translation + elastic distortion
-        trans = magnitude * srs.normal((2, h, w))
-        trans += translation * srs.uniform((2, 1, 1), -1)
-        trans = sigconv.conv2d(trans, filt, (2, h, w), filt.shape, 'full')
-        trans = trans[:, sigma:h + sigma, sigma:w + sigma]
-        trans += np.indices((h, w))
+        # Translate
+        if translation:
+            transln = translation * srs.uniform((2, 1, 1), -1)
+            target += transln
 
-        # Now zoom it
-        halves = np.array((h // 2, w // 2)).reshape((2, 1, 1))
-        zoomer = tt.exp(np.log(zoom) * srs.uniform((2, 1, 1), -1))
-        trans -= halves
-        trans *= zoomer
-        trans += halves
+        # Apply elastic transform
+        if magnitude:
+            # Build a gaussian filter
+            var = sigma ** 2
+            filt = np.array([[np.exp(-.5 * (i * i + j * j) / var)
+                             for i in range(-sigma, sigma + 1)]
+                             for j in range(-sigma, sigma + 1)], dtype=float_x)
+            filt /= 2 * np.pi * var
+
+            # Elastic
+            elast = magnitude * srs.normal((2, h, w))
+            elast = sigconv.conv2d(elast, filt, (2, h, w), filt.shape, 'full')
+            elast = elast[:, sigma:h + sigma, sigma:w + sigma]
+            target += elast
+
+        # Center at 'about' half way
+        if zoom-1 or angle:
+            origin = srs.uniform((2, 1, 1), .25, .75) * \
+                     np.array((h, w)).reshape((2, 1, 1))
+            target -= origin
+
+            # Zoom
+            if zoom-1:
+                zoomer = tt.exp(np.log(zoom) * srs.uniform((2, 1, 1), -1))
+                target *= zoomer
+
+            # Rotate
+            if angle:
+                theta = angle * np.pi / 180 * srs.uniform(low=-1)
+                c, s = tt.cos(theta), tt.sin(theta)
+                rotate = tt.stack(c, -s, s, c).reshape((2,2))
+                target = tt.tensordot(rotate, target, axes=((0, 0)))
+
+            # Uncenter
+            target += origin
 
         # Clip the mapping to valid range and linearly interpolate
-        transy = tt.clip(trans[0], 0, h - 1 - .001)
-        transx = tt.clip(trans[1], 0, w - 1 - .001)
+        transy = tt.clip(target[0], 0, h - 1 - .001)
+        transx = tt.clip(target[1], 0, w - 1 - .001)
 
         if nearest:
             vert = tt.iround(transy)
@@ -102,9 +135,22 @@ class ElasticLayer(Layer):
                      inpt[:, topp + 1, left + 1] * fraction_y * fraction_x
 
         # Now add some noise
-        mask = srs.binomial(n=1, p=pflip, size=inpt.shape, dtype=float_x)
-        self.trans = trans - np.indices((h, w))  # for debugging
-        self.output = (1 - output) * mask + output * (1 - mask)
+        if pflip:
+            mask = srs.binomial(n=1, p=pflip, size=inpt.shape, dtype=float_x)
+            output = (1 - output) * mask + output * (1 - mask)
+
+        self.output = output
+        self.debugout = [self.output,
+                         target - np.indices((h, w)),]
+
+        if translation:
+            self.debugout.append(transln)
+        if zoom-1 or angle:
+            self.debugout.append(origin)
+        if angle:
+            self.debugout.append(theta*180/np.pi)
+        if zoom-1:
+            self.debugout.append(zoomer)
 
     def TestVersion(self, te_inpt):
         return ElasticLayer(te_inpt, self.img_sz,
