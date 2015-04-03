@@ -154,6 +154,8 @@ class ElasticLayer(Layer):
 
     def TestVersion(self, te_inpt):
         return ElasticLayer(te_inpt, self.img_sz,
-                            0, 1, 0, 0, 0,
+                            translation=0, zoom=1,
+                            magnitude=0, sigma=1,
+                            pflip=0, angle=0,
                             invert_image=self.invert,
                             nearest=self.nearest)
