@@ -35,11 +35,12 @@ API Reference
 A list of all classes and functions.
 
 .. toctree::
-  :maxdepth: 2
+  :maxdepth: 4
 
-  modules/layers
-  modules/neuralnet
-
+  modules/modules
+  modules/train
+  modules/theanet
+  modules/theanet.layer
 
 Indices and tables
 ------------------
