@@ -11,7 +11,7 @@ from theano import shared, config
 
 from theanet.neuralnet import NeuralNet
 
-# ############################### HELPER FUNCTIONS ############################
+################################ HELPER FUNCTIONS ############################
 
 
 def read_json_bz2(path2data):
@@ -46,7 +46,7 @@ class WrapOut:
     def __getattr__(self, attr):
         return getattr(self.stream, attr)
 
-# ################################## MAIN CODE ################################
+################################### MAIN CODE ################################
 
 if len(sys.argv) < 4:
     print('Usage:', sys.argv[0],
@@ -86,15 +86,15 @@ try:
 except KeyError:
     allwts = None
 
-# # Init SEED
+## Init SEED
 if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
     tr_prms['SEED'] = np.random.randint(0, 1e6)
 
 out_file_head = os.path.basename(prms_file_name,).replace(
-    '.prms', str(tr_prms['SEED']))
+    os.path.splitext(prms_file_name)[1], "_" + str(tr_prms['SEED']))
 
 if sys.argv[-1] is '1':
-    print("Printing output to {}.txt".format(out_file_head))
+    print("Printing output to {}.txt".format(out_file_head), file=sys.stderr)
     sys.stdout = WrapOut(True, out_file_head + '.txt')
 else:
     sys.stdout = WrapOut(False)
@@ -102,6 +102,7 @@ else:
 
 ##########################################  Print Parameters
 
+print(' '.join(sys.argv), file=sys.stderr)
 print(' '.join(sys.argv))
 print('Time   : ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 print('Device : {} ({})'.format(config.device, config.floatX))
@@ -125,7 +126,7 @@ if allwts:
     print('Total Number of Weights : {}'.format(nwts))
 
 ## Print Training Parameters
-print('\nTraing Parameters: ')
+print('\nTraining Parameters: ')
 for key in sorted(tr_prms.keys()):
     print('\t{} : \t{}'.format(key, tr_prms[key]))
 
@@ -227,7 +228,12 @@ def do_test():
     with open(saved_file_name, 'wb') as pkl_file:
         pickle.dump(nn.get_init_params(), pkl_file, -1)
     
-
+def print_wt_info():
+    for l, ww in enumerate(nn.get_init_params()["allwts"]):
+        for w in ww:
+            print("Layer {}: {} {:.3e} {:.3e} {:.3e}".format(l, w.shape, w.mean(),
+                                                 w.min(), w.max()))
+            break
 
 ############################################ Training Loop
 
@@ -240,10 +246,26 @@ for epoch in range(nEpochs):
         output = training_fn(ibatch)
         total_cost += output[0]
 
+        if np.isnan(total_cost):
+            print("Epoch:{} Iteration:{}".format(epoch, ibatch))
+            print_wt_info()
+            raise ZeroDivisionError("Nan cost at Epoch:{} Iteration:{}"
+                                    "".format(epoch, ibatch))
+
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
         print("{:3d} {:>8.2f}".format(nn.get_epoch(), total_cost), end='    ')
         do_test()
 
     nn.inc_epoch_set_rate()
 
+########################################## Final Error Rates
+
+test_err, aux_test_err = test_wrapper(test_fn_te(i)
+                                      for i in range(te_corpus_sz//batch_sz))
+trin_err, aux_trin_err = test_wrapper(test_fn_tr(i)
+                                      for i in range(tr_corpus_sz//batch_sz))
+
+print("{:3d} {:>8.2f}".format(nn.get_epoch(), 0), end='    ')
+print("{:5.2f}%  ({:5.2f}%)      {:5.2f}%  ({:5.2f}%)".format(
+        trin_err, aux_trin_err, test_err, aux_test_err))
 print('Optimization Complete!!!')

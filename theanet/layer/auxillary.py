@@ -77,7 +77,7 @@ class AuxConcatLayer(Layer):
         self.output = output
         self.n_aux = n_aux
         self.n_in = n_in
-        self.n_out = n_aux + n_in
+        self.n_out = n_aux[-1] + n_in
         self.aux_type = aux_type
         self.params = aux_info.params
         self.representation = "AuxConcat In:{:3d} Aux:{} Out:{:3d} ". \
@@ -98,7 +98,7 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                  rand_gen,
                  n_in, n_out, n_aux,
                  aux_type,
-                 reg=(),
+                 reg=(), loss="nll",
                  test_version=False):
 
         hidden_wts = None if wts is None else wts[:2]
@@ -125,6 +125,7 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         self.n_aux = n_aux
         self.n_out = n_out
         self.aux_type = aux_type
+        self.loss = loss
         self.params += aux_info.params
         self.params += [cross_w, cross_b]
         self.representation = "SoftAux In:{:3d} Aux:{} Out:{:3d}" \

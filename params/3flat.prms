@@ -15,21 +15,9 @@
         ('HiddenLayer', {
             'n_out'         :1000,
             'pdrop'         :.5,
-            'actvn'         :'relu',
+            'actvn'         :'relu10',
+            'reg'           : {'L2':.001, 'maxnorm':0},
             }),
-        ('HiddenLayer', {
-            'n_out'         :1000,
-            'pdrop'         :.5,
-            'actvn'         :'relu',
-            }),
-#       ('CenteredOutLayer', {
-#           'centers'       :None,
-#           'n_features'    :100,
-#           'n_classes'     :10,
-#           'kind'          :'RBF',
-#           'learn_centers' :True, 
-#           'junk_dist'     :1e6,
-#           }),
         ('SoftmaxLayer', {
             'n_out'         :457,
             }),
@@ -39,17 +27,10 @@
 	'BATCH_SZ' : 20,
     'NUM_EPOCHS' : 201,
     'TRAIN_ON_FRACTION' : .75,
-    'EPOCHS_TO_TEST' : 4,
+    'EPOCHS_TO_TEST' : 1,
     'TEST_SAMP_SZ': 5000,
-    'DEFORM'    : None,
-    'DFM_PRMS' : {},
 
-    'MOMENTUM' : .95,
-    'INIT_LEARNING_RATE': 1,
+    'INIT_LEARNING_RATE': .3,
     'EPOCHS_TO_HALF_RATE':  1,
-    'LAMBDA1': 0.00,
-    'LAMBDA2': 0.001,
-    'MAXNORM': 5,
 },
-
 }

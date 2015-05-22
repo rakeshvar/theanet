@@ -6,12 +6,12 @@ import theano.tensor as tt
 from . import layer
 from .layer.weights import borrow
 from .layer import InputLayer, ElasticLayer
-from .layer import ConvPoolLayer
+from .layer import ConvLayer, PoolLayer
 from .layer import HiddenLayer, AuxConcatLayer
 from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer
 
 
-# theano.config.optimizer = 'fast_compile'
+theano.config.optimizer = 'fast_compile'
 # theano.config.exception_verbosity = "high"
 ###############################################################################
 #                           The Neural Network
@@ -52,9 +52,9 @@ class NeuralNet():
         ilayer += 1
 
         # ConvPool Layers
-        while layers[ilayer][0] == 'ConvPoolLayer':
-            prev_tr_layer = tr_layers[ilayer - 1]
-            prev_te_layer = te_layers[ilayer - 1]
+        while layers[ilayer][0] in ('ConvLayer', 'PoolLayer'):
+            prev_tr_layer = tr_layers[ilayer-1]
+            prev_te_layer = te_layers[ilayer-1]
 
             tr_inpt = prev_tr_layer.output
             te_inpt = prev_te_layer.output
@@ -66,7 +66,13 @@ class NeuralNet():
 
             wts = allwts[ilayer] if allwts else None
 
-            curr_layer = ConvPoolLayer(tr_inpt, wts, rand_gen, batch_sz,
+            if layers[ilayer][0] == "ConvLayer":
+                curr_layer = ConvLayer(tr_inpt, wts, rand_gen, batch_sz,
+                                       prev_tr_layer.num_maps,
+                                       prev_tr_layer.out_sz,
+                                       **layers[ilayer][1])
+            else:
+                curr_layer = PoolLayer(tr_inpt,
                                        prev_tr_layer.num_maps,
                                        prev_tr_layer.out_sz,
                                        **layers[ilayer][1])
@@ -107,6 +113,7 @@ class NeuralNet():
         #       |- Needs CENTERS as nClasses
         assert layers[ilayer][0] in ('SoftmaxLayer',
                                      'SoftAuxLayer',
+                                     'SVMLayer',
                                      'CenteredOutLayer'), \
             "Hidden Layers need to be followed by OutputLayer"
 
@@ -114,7 +121,7 @@ class NeuralNet():
         prev_tr_layer = tr_layers[ilayer - 1]
         prev_te_layer = te_layers[ilayer - 1]
 
-        if layers[ilayer][0][:4] == 'Soft':
+        if layers[ilayer][0][:3] in ('Sof', 'SVM'):
             curr_layer_type = getattr(layer, layers[ilayer][0])
             curr_layer = curr_layer_type(prev_tr_layer.output,
                                          wts, rand_gen,
@@ -134,6 +141,9 @@ class NeuralNet():
             curr_layer = CenteredOutLayer(prev_tr_layer.output, wts, centers,
                                           rand_gen, prev_tr_layer.n_out,
                                           **layers[ilayer][1])
+        else:
+            raise NotImplementedError("Unknown Layer of type : ",
+                                      layers[ilayer][0])
 
         tr_layers.append(curr_layer)
         te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
@@ -166,7 +176,7 @@ class NeuralNet():
         # cost, training params, gradients, updates to those params
         print('Compiling training function...')
 
-        cost = self.tr_layers[-1].neg_log_likli(self.y)
+        cost = self.tr_layers[-1].cost(self.y)
         for lyr in self.tr_layers:
             cost += lyr.get_wtcost()
 
