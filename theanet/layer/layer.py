@@ -53,7 +53,7 @@ def activation_by_name(name):
 
 ###############################################################################
 
-class Layer(object):
+class Layer():
     """
     Base class for Layer
     """
