@@ -16,16 +16,18 @@
 import sys
 import os
 import shlex
+import mock
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
+#print(os.path.abspath('..'))
 sys.path.insert(0, os.path.abspath('..'))
 
 # Try mock importing numpy in stead of numpydoc?
-# import mock
+import mock
 
-MOCK_MODULES = ['numpy', 'scipy']
+MOCK_MODULES = ['numpy', 'scipy', 'theano', 'theano.tensor']
 for mod_name in MOCK_MODULES:
    sys.modules[mod_name] = mock.Mock() 
 
