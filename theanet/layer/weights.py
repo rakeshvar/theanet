@@ -21,15 +21,24 @@ def init_wb(wb, rand_gen,
             actvn,
             name):
     """
-    Initialize the weights for any layer
-    :param wb:      Could be None, numpy array or another shared variable
-    :param rand_gen: Needed if wts is None to generate new weights
-    :param size_w:     - do -
-    :param size_b:     - do -
-    :param fan_in:    - do -
-    :param fan_out:   - do -
-    :param actvn:     - do -
-    :return:
+    Initialize the weights. If wb is given, the weights are initialized
+    as a copy of the same. If wb is None, they are randomly initialized based
+    on the rest of the arguments.
+
+    :param wb: w and b (to be copied or None)
+    :type wb: None or ndarray or SharedVariable
+
+    The following a are needed only when wb is None.
+
+    :param RandomStream rand_gen: A random stream.
+    :param tuple size_w: Size of w 
+    :param size_b: Size of b 
+    :type size_b: tuple or int
+    :param int fan_in: Number of units coming in.
+    :param int fan_out: Number of units going out.
+    :param Activation actvn: The activation that will be applied.
+    :return: The initialized weights
+    :rtype: SharedVariable
     """
     if wb is None:
         w_bound = np.sqrt(6. / (fan_in + fan_out))
