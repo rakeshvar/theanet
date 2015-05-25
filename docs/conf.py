@@ -25,9 +25,9 @@ sys.path.insert(0, os.path.abspath('..'))
 # Try mock importing numpy in stead of numpydoc?
 # import mock
 
-# MOCK_MODULES = ['numpy', 'scipy']
-# for mod_name in MOCK_MODULES:
-#    sys.modules[mod_name] = mock.Mock() 
+MOCK_MODULES = ['numpy', 'scipy']
+for mod_name in MOCK_MODULES:
+   sys.modules[mod_name] = mock.Mock() 
 
 # -- General configuration ------------------------------------------------
 
