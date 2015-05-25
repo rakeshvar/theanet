@@ -15,7 +15,7 @@ class LocationInfo():
     def __init__(self,
                  wts,
                  rand_gen=None,
-                 n_aux=(6, 6),
+                 n_aux=(5, 9),
                  test_version=False,):
 
         loc_inpt4 = tt.tensor3('AuxiallaryInput')
