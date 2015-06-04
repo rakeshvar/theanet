@@ -5,25 +5,25 @@ import pickle
 import numpy as np
 import os
 import sys
+import bz2
+import json
 from datetime import datetime
-from operator import mul
-from theano import shared, config
 
-from theanet.neuralnet import NeuralNet
+import theano as th
+import theanet.neuralnet as nn
 
 ################################ HELPER FUNCTIONS ############################
 
 
 def read_json_bz2(path2data):
-    import bz2, json
     bz2_fp = bz2.BZ2File(path2data, 'r')
     data = np.array(json.loads(bz2_fp.read().decode('utf-8')))
     bz2_fp.close()
     return data
 
 
-def share(data, dtype=config.floatX, borrow=True):
-    return shared(np.asarray(data, dtype), borrow=borrow)
+def share(data, dtype=th.config.floatX, borrow=True):
+    return th.shared(np.asarray(data, dtype), borrow=borrow)
 
 
 class WrapOut:
@@ -105,30 +105,12 @@ else:
 print(' '.join(sys.argv), file=sys.stderr)
 print(' '.join(sys.argv))
 print('Time   : ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-print('Device : {} ({})'.format(config.device, config.floatX))
+print('Device : {} ({})'.format(th.config.device, th.config.floatX))
 
-## Print Layers Info
-for lyr in layers:
-    print('{} : '.format(lyr[0]))
-    for key in lyr[1]:
-        print('\t{} : \t{}'.format(key, lyr[1][key]))
-
-## Print sizes of weights
+print(nn.get_layers_info(layers))
+print(nn.get_training_params_info(tr_prms))
 if allwts:
-    from functools import reduce
-    print("\nWeights")
-    nwts = 0
-    for l, ww in enumerate(allwts):
-        print("Layer {}:".format(l))
-        for w in ww:
-            nwts += reduce(mul, w.shape)
-            print('\t', w.shape, w.dtype)
-    print('Total Number of Weights : {}'.format(nwts))
-
-## Print Training Parameters
-print('\nTraining Parameters: ')
-for key in sorted(tr_prms.keys()):
-    print('\t{} : \t{}'.format(key, tr_prms[key]))
+    print(nn.get_wts_info(allwts))
 
 ##########################################  Load Data
 
@@ -157,20 +139,19 @@ test_y = share(data_y[n_train:, ], 'int32')
 
 if aux_file_name:
     data_aux = read_json_bz2(aux_file_name)
-    #Can normalize the aux data by division   /layers[0][1]['img_sz']
     trin_aux = share(data_aux[:n_train, ])
     test_aux = share(data_aux[n_train:, ])
 else:
     trin_aux, test_aux = None, None
 
 print("\nInitializing the net ... ")
-nn = NeuralNet(layers, tr_prms, allwts)
-print(nn)
+net = nn.NeuralNet(layers, tr_prms, allwts)
+print(net)
 
 print("\nCompiling ... ")
-training_fn = nn.get_trin_model(trin_x, trin_y, trin_aux)
-test_fn_tr = nn.get_test_model(trin_x, trin_y, trin_aux)
-test_fn_te = nn.get_test_model(test_x, test_y, test_aux)
+training_fn = net.get_trin_model(trin_x, trin_y, trin_aux)
+test_fn_tr = net.get_test_model(trin_x, trin_y, trin_aux)
+test_fn_te = net.get_test_model(test_x, test_y, test_aux)
 
 tr_corpus_sz = n_train
 te_corpus_sz = corpus_sz - n_train
@@ -190,7 +171,7 @@ def test_wrapper(nylist):
     return 100 * sym_err / n, 100 * bit_err / n
 
 
-if nn.tr_layers[-1].kind == 'LOGIT':
+if net.tr_layers[-1].kind == 'LOGIT':
     aux_err_name = 'BitErr'
 else:
     aux_err_name = 'P(MLE)'
@@ -226,14 +207,7 @@ def do_test():
 
     saved_file_name = pickle_file_name.format(test_err)
     with open(saved_file_name, 'wb') as pkl_file:
-        pickle.dump(nn.get_init_params(), pkl_file, -1)
-    
-def print_wt_info():
-    for l, ww in enumerate(nn.get_init_params()["allwts"]):
-        for w in ww:
-            print("Layer {}: {} {:.3e} {:.3e} {:.3e}".format(l, w.shape, w.mean(),
-                                                 w.min(), w.max()))
-            break
+        pickle.dump(net.get_init_params(), pkl_file, -1)
 
 ############################################ Training Loop
 
@@ -248,15 +222,15 @@ for epoch in range(nEpochs):
 
         if np.isnan(total_cost):
             print("Epoch:{} Iteration:{}".format(epoch, ibatch))
-            print_wt_info()
+            print(net.get_wts_info(True))
             raise ZeroDivisionError("Nan cost at Epoch:{} Iteration:{}"
                                     "".format(epoch, ibatch))
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
-        print("{:3d} {:>8.2f}".format(nn.get_epoch(), total_cost), end='    ')
+        print("{:3d} {:>8.2f}".format(net.get_epoch(), total_cost), end='    ')
         do_test()
 
-    nn.inc_epoch_set_rate()
+    net.inc_epoch_set_rate()
 
 ########################################## Final Error Rates
 
@@ -265,7 +239,6 @@ test_err, aux_test_err = test_wrapper(test_fn_te(i)
 trin_err, aux_trin_err = test_wrapper(test_fn_tr(i)
                                       for i in range(tr_corpus_sz//batch_sz))
 
-print("{:3d} {:>8.2f}".format(nn.get_epoch(), 0), end='    ')
+print("{:3d} {:>8.2f}".format(net.get_epoch(), 0), end='    ')
 print("{:5.2f}%  ({:5.2f}%)      {:5.2f}%  ({:5.2f}%)".format(
         trin_err, aux_trin_err, test_err, aux_test_err))
-print('Optimization Complete!!!')

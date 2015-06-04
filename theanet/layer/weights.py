@@ -36,7 +36,7 @@ def init_wb(wb, rand_gen,
     :type size_b: tuple or int
     :param int fan_in: Number of units coming in.
     :param int fan_out: Number of units going out.
-    :param Activation actvn: The activation that will be applied.
+    :param str actvn: The activation that will be applied. See `Activation`s
     :return: The initialized weights
     :rtype: SharedVariable
     """

@@ -16,6 +16,7 @@ class LocationInfo():
                  wts,
                  rand_gen=None,
                  n_aux=(5, 9),
+                 boost=1,
                  test_version=False,):
 
         loc_inpt4 = tt.tensor3('AuxiallaryInput')
@@ -29,6 +30,7 @@ class LocationInfo():
         else:
             loc_inpt2 = tt.mean(loc_inpt4, axis=1)
 
+        loc_inpt2 *= boost
         n_aux_hid, n_aux_out = n_aux
 
         # First Layer
@@ -38,11 +40,11 @@ class LocationInfo():
                                  (2, n_aux_hid), n_aux_hid,
                                  n_aux_hid + 2, n_aux_hid + 2,
                                  actvn1, 'Loc1')
-        hidden = activation_by_name(actvn1)(tt.dot(loc_inpt2, loc1_w) +
-                                              loc1_b)
+        hidden = activation_by_name(actvn1)(
+            tt.dot(loc_inpt2, loc1_w) + loc1_b)
 
         # Second Layer
-        actvn2 = "relu10"
+        actvn2 = "relu01"
         loc2_wts = None if wts is None else wts[2:]
         loc2_w, loc2_b = init_wb(loc2_wts, rand_gen,
                                  (n_aux_hid, n_aux_out), n_aux_out,
@@ -66,11 +68,15 @@ class AuxConcatLayer(Layer):
                  n_in,
                  n_aux,
                  aux_type,
+                 boost=1,
                  test_version=False):
         """
         """
         # noinspection PyCallingNonCallable
-        aux_info = globals()[aux_type](wts, rand_gen, n_aux, test_version)
+        aux_info = globals()[aux_type](wts, rand_gen,
+                                       n_aux=n_aux,
+                                       boost=boost,
+                                       test_version=test_version)
         output = tt.concatenate((inpt, aux_info.output), axis=1)
 
         self.aux_inpt = aux_info.aux_inpt
@@ -79,6 +85,7 @@ class AuxConcatLayer(Layer):
         self.n_in = n_in
         self.n_out = n_aux[-1] + n_in
         self.aux_type = aux_type
+        self.boost = boost
         self.params = aux_info.params
         self.representation = "AuxConcat In:{:3d} Aux:{} Out:{:3d} ". \
             format(n_in, n_aux, self.n_out)
@@ -88,6 +95,7 @@ class AuxConcatLayer(Layer):
                               self.params, None,
                               self.n_in, self.n_aux,
                               self.aux_type,
+                              boost=self.boost,
                               test_version=True)
 
 
@@ -99,6 +107,7 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                  n_in, n_out, n_aux,
                  aux_type,
                  reg=(), loss="nll",
+                 boost=1,
                  test_version=False):
 
         hidden_wts = None if wts is None else wts[:2]
@@ -108,7 +117,10 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
 
         aux_wts = None if wts is None else wts[2:6]
         # noinspection PyCallingNonCallable
-        aux_info = globals()[aux_type](aux_wts, rand_gen, n_aux, test_version)
+        aux_info = globals()[aux_type](aux_wts, rand_gen,
+                                       n_aux=n_aux,
+                                       boost=boost,
+                                       test_version=test_version)
 
         cross_wts = None if wts is None else wts[6:]
         n_aux_hid, n_aux_out = n_aux
@@ -125,6 +137,7 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         self.n_aux = n_aux
         self.n_out = n_out
         self.aux_type = aux_type
+        self.boost = boost
         self.loss = loss
         self.params += aux_info.params
         self.params += [cross_w, cross_b]
@@ -143,4 +156,5 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
         return SoftAuxLayer(inpt, self.params, rand_gen=None,
                             n_in=self.n_in, n_out=self.n_out, n_aux=self.n_aux,
                             aux_type=self.aux_type,
+                            boost=self.boost,
                             test_version=True)

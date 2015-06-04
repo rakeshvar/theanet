@@ -4,15 +4,53 @@ import theano
 import theano.tensor as tt
 
 from . import layer
-from .layer.weights import borrow
 from .layer import InputLayer, ElasticLayer
 from .layer import ConvLayer, PoolLayer
 from .layer import HiddenLayer, AuxConcatLayer
 from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer
 
-
-theano.config.optimizer = 'fast_compile'
+# theano.config.optimizer = 'fast_compile'
 # theano.config.exception_verbosity = "high"
+
+############################ Helper Functions #################################
+from functools import reduce
+from operator import mul
+
+
+def get_layers_info(layers):
+    string = ""
+    for lyr in layers:
+        string += '\n{} : '.format(lyr[0])
+        for key in lyr[1]:
+            string += '\n\t{} : \t{}'.format(key, lyr[1][key])
+
+    return string
+
+
+def get_wts_info(wts, detailed=False):
+    string, n_wts = "", 0
+    for l, ww in enumerate(wts):
+        string += "\nLayer {}:".format(l)
+        for w in ww:
+            n_ww = reduce(mul, w.shape)
+            n_wts += n_ww
+            string += '\n\t {} {} ❲{}❳'.format(w.shape, w.dtype, n_ww)
+            if detailed:
+                string += " ❲{:.2e}, {:.2e}, {:.2e}❳".format(
+                    w.min(), w.mean(), w.max())
+
+    string += '\n\nTotal Number of Weights : {:,}'.format(n_wts)
+    return string
+
+
+def get_training_params_info(training_params):
+    string = "Training Parameters:"
+    for key in sorted(training_params.keys()):
+        string += '\n\t{} : \t{}'.format(key, training_params[key])
+
+    return string
+
+
 ###############################################################################
 #                           The Neural Network
 ###############################################################################
@@ -227,14 +265,19 @@ class NeuralNet():
     def takes_aux(self):
         return hasattr(self, 'aux_inpt_te')
 
-    def get_data_test_model(self):
+    def get_data_test_model(self, go_nuts=False):
         print('Compiling full test function...')
         inputs = [self.test_x]
         if self.takes_aux():
             inputs += [self.aux_inpt_te]
 
-        return theano.function(inputs,
-                               self.te_layers[-1].features_and_predictions())
+        outputs = list(self.te_layers[-1].features_and_predictions())
+        if go_nuts:
+            print("going nuts...")
+            for lyr in self.te_layers:
+                outputs.append(lyr.output)
+
+        return theano.function(inputs, outputs)
 
     def get_init_params(self):
         return {"layers": self.layers,
@@ -244,8 +287,8 @@ class NeuralNet():
     def set_rate(self):
         self.cur_learn_rate.set_value(
             self.tr_prms['INIT_LEARNING_RATE'] /
-            (1 + self.tr_prms['CUR_EPOCH'] / self.tr_prms[
-                'EPOCHS_TO_HALF_RATE']))
+                (1 + self.tr_prms['CUR_EPOCH'] /
+                         self.tr_prms['EPOCHS_TO_HALF_RATE']))
 
     def inc_epoch_set_rate(self):
         self.tr_prms['CUR_EPOCH'] += 1
@@ -263,3 +306,12 @@ class NeuralNet():
             '\nTest Layers\n\t' + \
             '\n\t'.join([str(l) for l in self.te_layers]) + \
             '\nParams ' + prmstr
+
+    def get_layers_info(self):
+        return get_layers_info(self.layers)
+
+    def get_wts_info(self, detailed=False):
+        return get_wts_info((l.get_wts() for l in self.tr_layers), detailed)
+
+    def get_training_params_info(self):
+        return get_training_params_info(self.tr_prms)
