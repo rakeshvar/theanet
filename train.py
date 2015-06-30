@@ -109,8 +109,6 @@ print('Device : {} ({})'.format(th.config.device, th.config.floatX))
 
 print(nn.get_layers_info(layers))
 print(nn.get_training_params_info(tr_prms))
-if allwts:
-    print(nn.get_wts_info(allwts))
 
 ##########################################  Load Data
 
@@ -147,6 +145,7 @@ else:
 print("\nInitializing the net ... ")
 net = nn.NeuralNet(layers, tr_prms, allwts)
 print(net)
+print(net.get_wts_info().replace("\n\t", ""))
 
 print("\nCompiling ... ")
 training_fn = net.get_trin_model(trin_x, trin_y, trin_aux)

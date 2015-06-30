@@ -42,7 +42,7 @@ def pprint(slab):
 
 
 def stack(imgs3d):
-    return np.rollaxis(imgs3d, 0, 1).reshape(img_sz*batch_sz, img_sz)
+    return np.rollaxis(imgs3d, 0, 2).reshape(img_sz, img_sz*batch_sz)
 
 ############################################## Arguments
 
@@ -62,7 +62,6 @@ with open(prms_file_name, 'r') as p_fp:
     params = ast.literal_eval(p_fp.read())
     layers = params['layers']
     tr_prms = params['training_params']
-    batch_sz = 10 #tr_prms['BATCH_SZ']
 
 ############################################## Load
 
@@ -86,26 +85,41 @@ print(deform_layer)
 
 ############################################## Perform deformation
 
+batch_sz = 7
 if begin is None:
     begin = np.random.randint(corpus_sz-batch_sz, size=1)[0]
+
 n_batches = 10
+n_distortions = 3
+margin = 1
+img_szm = img_sz + margin
+out_img = np.zeros((img_szm*(n_distortions+1)+1, img_szm*batch_sz+1)) + .5
+
+def assign_row(out, imgs3d, row):
+    row *= img_szm
+    row += 1
+    for i in range(batch_sz):
+        col = i*img_szm + 1
+        out[row:row+img_sz,col:col+img_sz] = imgs3d[i]
 
 for index in range(begin, begin + n_batches * batch_sz, batch_sz):
-    df_imgs, trans, *debug = deform_fn(data_x[index:index+batch_sz])
-    for vec in debug:
-        print(vec.flatten(), end=', ')
+    in_img = data_x[index:index + batch_sz]
+    #out_img = stack(in_img)
+    assign_row(out_img, in_img, 0)
+    for dist in range(n_distortions):
+        df_imgs, trans, *debug = deform_fn(in_img)
 
-    if deform_layer.invert:
-        df_imgs = 1 - df_imgs
+        if deform_layer.invert:
+            df_imgs = 1 - df_imgs
 
-    sidebyside = np.hstack((stack(data_x[index:index+batch_sz]),
-                            stack(df_imgs)))
+        #out_img = np.vstack((out_img, stack(df_imgs)))
+        assign_row(out_img, df_imgs, dist+1)
 
-    out_img = data_file.replace('.bz2', str(index) + '.bmp')
-    scaled = (255*(1-sidebyside)).astype('uint8')
-    im.fromarray(scaled).save(out_img)
+    out_fname = data_file.replace('.bz2', str(index) + '.bmp')
+    scaled = (255*(1 - out_img)).astype('uint8')
+    im.fromarray(scaled).save(out_fname)
 
     plt.quiver(trans[1], trans[0])
-    plt.savefig(out_img.replace('.bmp', '.png'))
+    plt.savefig(out_fname.replace('.bmp', '.png'))
     plt.clf()
-    print("\nSaved ", out_img, out_img.replace('.bmp', '.png'))
+    print("\nSaved ", out_fname, out_fname.replace('.bmp', '.png'))

@@ -1,11 +1,10 @@
-from __future__ import print_function
 import numpy as np
 import theano
 import theano.tensor as tt
 
 from . import layer
 from .layer import InputLayer, ElasticLayer
-from .layer import ConvLayer, PoolLayer
+from .layer import ConvLayer, PoolLayer, MeanLayer, DropOutLayer
 from .layer import HiddenLayer, AuxConcatLayer
 from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer
 
@@ -90,7 +89,7 @@ class NeuralNet():
         ilayer += 1
 
         # ConvPool Layers
-        while layers[ilayer][0] in ('ConvLayer', 'PoolLayer'):
+        while layers[ilayer][0] in ('ConvLayer', 'PoolLayer', 'MeanLayer'):
             prev_tr_layer = tr_layers[ilayer-1]
             prev_te_layer = te_layers[ilayer-1]
 
@@ -110,7 +109,8 @@ class NeuralNet():
                                        prev_tr_layer.out_sz,
                                        **layers[ilayer][1])
             else:
-                curr_layer = PoolLayer(tr_inpt,
+                curr_layer_type = getattr(layer, layers[ilayer][0])
+                curr_layer = curr_layer_type(tr_inpt,
                                        prev_tr_layer.num_maps,
                                        prev_tr_layer.out_sz,
                                        **layers[ilayer][1])
@@ -119,26 +119,35 @@ class NeuralNet():
             te_layers.append(curr_layer.TestVersion(te_inpt))
             ilayer += 1
 
-        # Flatten Output of Last ConvPool Layers
-        prev_tr_layer = tr_layers[ilayer - 1]
-        prev_te_layer = te_layers[ilayer - 1]
-        prev_tr_layer.output = prev_tr_layer.output.flatten(2)
-        prev_te_layer.output = prev_te_layer.output.flatten(2)
+        # Dropout Layer following the last Conv/Pool/Mean layer
+        if layers[ilayer][0] == 'DropOutLayer':
+            prev_tr_layer = tr_layers[ilayer - 1]
+            prev_te_layer = te_layers[ilayer - 1]
+
+            curr_layer = DropOutLayer(prev_tr_layer.output,
+                                    rand_gen,
+                                    prev_tr_layer.n_out,
+                                    **layers[ilayer][1])
+
+            tr_layers.append(curr_layer)
+            te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
+            ilayer += 1
 
         #  Hidden Layers
-        while layers[ilayer][0] in ('AuxConcatLayer', 'HiddenLayer'):
+        while layers[ilayer][0] in ('AuxConcatLayer', 'HiddenLayer', 'DropOutLayer'):
             prev_tr_layer = tr_layers[ilayer - 1]
             prev_te_layer = te_layers[ilayer - 1]
 
             wts = allwts[ilayer] if allwts else None
 
             curr_layer_type = getattr(layer, layers[ilayer][0])
-            curr_layer = curr_layer_type(prev_tr_layer.output, wts, rand_gen,
+            curr_layer = curr_layer_type(prev_tr_layer.output.flatten(2),
+                                         wts, rand_gen,
                                          prev_tr_layer.n_out,
                                          **layers[ilayer][1])
 
             tr_layers.append(curr_layer)
-            te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
+            te_layers.append(curr_layer.TestVersion(prev_te_layer.output.flatten(2)))
             ilayer += 1
 
         # Output layer
@@ -161,7 +170,7 @@ class NeuralNet():
 
         if layers[ilayer][0][:3] in ('Sof', 'SVM'):
             curr_layer_type = getattr(layer, layers[ilayer][0])
-            curr_layer = curr_layer_type(prev_tr_layer.output,
+            curr_layer = curr_layer_type(prev_tr_layer.output.flatten(2),
                                          wts, rand_gen,
                                          prev_tr_layer.n_out,
                                          **layers[ilayer][1])
@@ -176,7 +185,8 @@ class NeuralNet():
                 wts = allwts[:2]
                 centers = allwts[3]
 
-            curr_layer = CenteredOutLayer(prev_tr_layer.output, wts, centers,
+            curr_layer = CenteredOutLayer(prev_tr_layer.output.flatten(2),
+                                          wts, centers,
                                           rand_gen, prev_tr_layer.n_out,
                                           **layers[ilayer][1])
         else:
@@ -184,7 +194,7 @@ class NeuralNet():
                                       layers[ilayer][0])
 
         tr_layers.append(curr_layer)
-        te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
+        te_layers.append(curr_layer.TestVersion(prev_te_layer.output.flatten(2)))
         ilayer += 1
 
         for tr_layer, te_layer in zip(tr_layers, te_layers):

@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import theano as th
+import theano.tensor as tt
 import theano.tensor.nnet.conv as nnconv
 from theano.tensor.signal import downsample
 from .layer import Layer, activation_by_name
@@ -77,14 +78,17 @@ class ConvLayer(Layer):
         self.num_maps = num_maps
         self.mode = mode
         self.n_out = num_maps * self.out_sz ** 2
-        self.reg = {"L1": 0, "L2": 0, "momentum": .95, "rate": 1}
+        self.reg = {"L1": 0, "L2": 0,
+                    "momentum": .95,
+                    "rate": 1,
+                    "maxnorm": 0,}
         self.reg.update(reg)
 
         self.args = (batch_sz, num_prev_maps, in_sz, num_maps, filter_sz,
                      stride, mode, actvn, reg)
         self.representation = (
             "Conv Maps:{:2d} Filter:{} Stride:{} Mode:{} Output:{:2d} "
-            "Act:{}\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Rate:{rate}"
+            "Act:{}\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Rate:{rate} Max Norm:{maxnorm}"
             "".format(num_maps, filter_sz, stride, mode, self.out_sz,
                       actvn, **self.reg))
 
@@ -102,6 +106,7 @@ class PoolLayer(Layer):
         """
         self.output = downsample.max_pool_2d(inpt, (pool_sz, pool_sz),
                                              ignore_border=ignore_border)
+
         if ignore_border:
             self.out_sz = in_sz//pool_sz
         else:
@@ -121,3 +126,20 @@ class PoolLayer(Layer):
 
     def TestVersion(self, inpt):
         return PoolLayer(inpt, *self.args)
+
+class MeanLayer(Layer):
+    def __init__(self, inpt, num_maps, in_sz):
+        self.output = tt.mean(inpt, axis=(2,3))
+        self.params = []
+        self.inpt = inpt
+        self.num_maps = num_maps
+        self.in_sz = in_sz
+        self.out_sz = 1
+        self.n_out = num_maps
+
+        self.representation = (
+            "Mean Maps:{:2d} Output:{:2d}"
+            "".format(num_maps, self.out_sz))
+
+    def TestVersion(self, inpt):
+        return MeanLayer(inpt, self.num_maps, self.in_sz)

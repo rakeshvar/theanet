@@ -1,17 +1,11 @@
 import theano as th
 import theano.tensor as tt
 from .layer import Layer, activation_by_name
+from .dropout import drop_output
 from .weights import init_wb, borrow
 
 float_x = th.config.floatX
 ############################### Hidden Layer  ##################################
-
-
-def drop_output(output, pdrop, rand_gen):
-    srs = tt.shared_randomstreams.RandomStreams(rand_gen.randint(1e6)
-                                                if rand_gen else None)
-    mask = srs.binomial(n=1, p=1 - pdrop, size=output.shape)
-    return output * tt.cast(mask, float_x)
 
 
 class HiddenLayer(Layer):

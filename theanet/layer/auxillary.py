@@ -129,8 +129,8 @@ class SoftAuxLayer(HiddenLayer, OutputLayer):
                                    n_aux_out + n_out, n_aux_out + n_out,
                                    'softmax', 'SoftAuxCross')
 
-        self.hidden_ouput = self.output
-        self.output = tt.nnet.softmax(self.hidden_ouput + cross_b +
+        self.hidden_output = self.output
+        self.output = tt.nnet.softmax(self.hidden_output + cross_b +
                                       tt.dot(aux_info.output, cross_w))
 
         self.aux_inpt = aux_info.aux_inpt

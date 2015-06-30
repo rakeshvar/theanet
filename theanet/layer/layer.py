@@ -81,14 +81,20 @@ class Layer():
 
             updated_param = param - self.reg['rate'] * rate * update
 
-            if borrow(param).ndim == 2 and self.reg['maxnorm']:
-                col_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=0))
-                desired_norms = tt.clip(col_norms, 0, self.reg['maxnorm'])
-                scale = (1e-7 + desired_norms) / (1e-7 + col_norms)
-                updates.append((param, updated_param * scale))
+            if self.reg['maxnorm']:
+                if borrow(param).ndim == 2:
+                    col_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=0))
+                    desired_norms = tt.clip(col_norms, 0, self.reg['maxnorm'])
+                    scale = (1e-7 + desired_norms) / (1e-7 + col_norms)
+                    updated_param *= scale
 
-            else:
-                updates.append((param, updated_param))
+                elif borrow(param).ndim == 4:
+                    ker_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=(1, 2, 3)))
+                    desired_norms = tt.clip(ker_norms, 0, self.reg['maxnorm'])
+                    scale = (1e-7 + desired_norms) / (1e-7 + ker_norms)
+                    updated_param *= scale.dimshuffle(0,'x','x','x')
+
+            updates.append((param, updated_param))
 
         return updates
 
