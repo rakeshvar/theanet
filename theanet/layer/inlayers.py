@@ -10,23 +10,25 @@ float_x = th.config.floatX
 
 
 class InputLayer(Layer):
-    def __init__(self, inpt, img_sz, ):
+    def __init__(self, inpt, img_sz, num_maps=1):
         self.params = []
         self.inpt = inpt
         self.out_sz = img_sz
-        self.num_maps = 1
+        self.num_maps = num_maps
         self.n_out = self.num_maps * self.out_sz ** 2
         self.representation = \
-            'Input Maps:1 Sizes Input:{:2d} Output:{:2d}'.format(img_sz, img_sz)
-
+            'Input Maps:{} Sizes Input:{:2d} Output:{:2d}'.format(num_maps,
+                                                                  img_sz,
+                                                                  img_sz)
         self.output = inpt
 
     def TestVersion(self, inpt):
-        return InputLayer(inpt, self.out_sz)
+        return InputLayer(inpt, self.out_sz, self.num_maps)
 
 
 class ElasticLayer(Layer):
     def __init__(self, inpt, img_sz,
+                 num_maps = 1,
                  translation=0,
                  zoom=1,
                  magnitude=0,
@@ -46,7 +48,7 @@ class ElasticLayer(Layer):
         self.nearest = nearest
 
         self.out_sz = img_sz
-        self.num_maps = 1
+        self.num_maps = num_maps
         self.n_out = self.num_maps * self.out_sz ** 2
         self.params = []
         self.representation = ('Elastic Maps:{:d} Size:{:2d} Translation:{:} '
@@ -122,17 +124,17 @@ class ElasticLayer(Layer):
         if nearest:
             vert = tt.iround(transy)
             horz = tt.iround(transx)
-            output = inpt[:, vert, horz]
+            output = inpt[:, :, vert, horz]
         else:
             topp = tt.cast(transy, 'int32')
             left = tt.cast(transx, 'int32')
             fraction_y = tt.cast(transy - topp, float_x)
             fraction_x = tt.cast(transx - left, float_x)
 
-            output = inpt[:, topp, left] * (1 - fraction_y) * (1 - fraction_x) + \
-                     inpt[:, topp, left + 1] * (1 - fraction_y) * fraction_x + \
-                     inpt[:, topp + 1, left] * fraction_y * (1 - fraction_x) + \
-                     inpt[:, topp + 1, left + 1] * fraction_y * fraction_x
+            output = inpt[:, :, topp, left] * (1 - fraction_y) * (1 - fraction_x) + \
+                     inpt[:, :, topp, left + 1] * (1 - fraction_y) * fraction_x + \
+                     inpt[:, :, topp + 1, left] * fraction_y * (1 - fraction_x) + \
+                     inpt[:, :, topp + 1, left + 1] * fraction_y * fraction_x
 
         # Now add some noise
         if pflip:

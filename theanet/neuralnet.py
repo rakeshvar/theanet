@@ -58,167 +58,125 @@ def get_training_params_info(training_params):
 class NeuralNet():
     def __init__(self, layers, training_params, allwts=None):
 
-        # Either we have a random seed or the WTS for each layer from a 
+        # Either we have a random seed or the WTS for each layer from a
         # previously trained NeuralNet
         if allwts is None:
-            rand_gen = np.random.RandomState(training_params['SEED'])
+            self.rand_gen = np.random.RandomState(training_params['SEED'])
         else:
-            rand_gen = None
+            self.rand_gen = None
+
+        self.tr_prms = training_params
+        self.layers = layers
+        self.allwts = allwts
+        self.tr_layers = []
+        self.te_layers = []
+        self.batch_sz = training_params['BATCH_SZ']
+        self.num_layers = 0
 
         # Symbolic variables for the data
-        x = tt.tensor3('x')
-        test_x = tt.tensor3('test_x')
-        y = tt.ivector('y')
-
-        tr_layers = []
-        te_layers = []
+        self.x = tt.tensor4('x')
+        self.test_x = tt.tensor4('test_x')
+        self.y = tt.ivector('y')
 
         # Input Layer
         assert layers[0][0] in ('InputLayer', 'ElasticLayer'), \
             "First layer needs to be Input or Elastic Distorition Layer"
-        batch_sz = training_params['BATCH_SZ']
 
-        ilayer = 0
-        if layers[0][0] == 'InputLayer':
-            tr_layers.append(InputLayer(x, **layers[0][1]))
+        input_layer_type = getattr(layer, layers[0][0])
+        self.tr_layers.append(input_layer_type(self.x, **layers[0][1]))
+        self.te_layers.append(self.tr_layers[0].TestVersion(self.test_x))
+        self.num_layers += 1
 
-        elif layers[0][0] == 'ElasticLayer':
-            tr_layers.append(ElasticLayer(x, **layers[0][1]))
+        while self.num_layers < len(layers):
+            self.append_next_layer()
 
-        te_layers.append(tr_layers[0].TestVersion(test_x))
-        ilayer += 1
-
-        # ConvPool Layers
-        while layers[ilayer][0] in ('ConvLayer', 'PoolLayer', 'MeanLayer'):
-            prev_tr_layer = tr_layers[ilayer-1]
-            prev_te_layer = te_layers[ilayer-1]
-
-            tr_inpt = prev_tr_layer.output
-            te_inpt = prev_te_layer.output
-
-            if type(prev_tr_layer) in (InputLayer, ElasticLayer):
-                img_sz = prev_tr_layer.out_sz
-                tr_inpt = tr_inpt.reshape((batch_sz, 1, img_sz, img_sz))
-                te_inpt = te_inpt.reshape((batch_sz, 1, img_sz, img_sz))
-
-            wts = allwts[ilayer] if allwts else None
-
-            if layers[ilayer][0] == "ConvLayer":
-                curr_layer = ConvLayer(tr_inpt, wts, rand_gen, batch_sz,
-                                       prev_tr_layer.num_maps,
-                                       prev_tr_layer.out_sz,
-                                       **layers[ilayer][1])
-            else:
-                curr_layer_type = getattr(layer, layers[ilayer][0])
-                curr_layer = curr_layer_type(tr_inpt,
-                                       prev_tr_layer.num_maps,
-                                       prev_tr_layer.out_sz,
-                                       **layers[ilayer][1])
-
-            tr_layers.append(curr_layer)
-            te_layers.append(curr_layer.TestVersion(te_inpt))
-            ilayer += 1
-
-        # Dropout Layer following the last Conv/Pool/Mean layer
-        if layers[ilayer][0] == 'DropOutLayer':
-            prev_tr_layer = tr_layers[ilayer - 1]
-            prev_te_layer = te_layers[ilayer - 1]
-
-            curr_layer = DropOutLayer(prev_tr_layer.output,
-                                    rand_gen,
-                                    prev_tr_layer.n_out,
-                                    **layers[ilayer][1])
-
-            tr_layers.append(curr_layer)
-            te_layers.append(curr_layer.TestVersion(prev_te_layer.output))
-            ilayer += 1
-
-        #  Hidden Layers
-        while layers[ilayer][0] in ('AuxConcatLayer', 'HiddenLayer', 'DropOutLayer'):
-            prev_tr_layer = tr_layers[ilayer - 1]
-            prev_te_layer = te_layers[ilayer - 1]
-
-            wts = allwts[ilayer] if allwts else None
-
-            curr_layer_type = getattr(layer, layers[ilayer][0])
-            curr_layer = curr_layer_type(prev_tr_layer.output.flatten(2),
-                                         wts, rand_gen,
-                                         prev_tr_layer.n_out,
-                                         **layers[ilayer][1])
-
-            tr_layers.append(curr_layer)
-            te_layers.append(curr_layer.TestVersion(prev_te_layer.output.flatten(2)))
-            ilayer += 1
-
-        # Output layer
-        #   |- CenteredOutLayer 
-        #       |- Can be LOGIT or RBF
-        #       |- Needs Wts for hidden layer (can be generated randomly as nPrevLayerUnits x nFeatures)
-        #       |- Needs CENTERS as a matrix or as a tuple (nClassesxnFeatures) to convert from Features to Class probs
-        #   |- SoftmaxLayer
-        #       |- Needs Wts for hidden layer (can be generated randomly as nPrevLayerUnits x nClasses)
-        #       |- Needs CENTERS as nClasses
-        assert layers[ilayer][0] in ('SoftmaxLayer',
-                                     'SoftAuxLayer',
-                                     'SVMLayer',
-                                     'CenteredOutLayer'), \
-            "Hidden Layers need to be followed by OutputLayer"
-
-        wts = allwts[ilayer] if allwts else None
-        prev_tr_layer = tr_layers[ilayer - 1]
-        prev_te_layer = te_layers[ilayer - 1]
-
-        if layers[ilayer][0][:3] in ('Sof', 'SVM'):
-            curr_layer_type = getattr(layer, layers[ilayer][0])
-            curr_layer = curr_layer_type(prev_tr_layer.output.flatten(2),
-                                         wts, rand_gen,
-                                         prev_tr_layer.n_out,
-                                         **layers[ilayer][1])
-
-        elif layers[ilayer][0] == 'CenteredOutLayer':
-            try:
-                centers = layers[ilayer][1].pop('centers')
-            except KeyError:
-                centers = None
-
-            if allwts and len(allwts) == 3:
-                wts = allwts[:2]
-                centers = allwts[3]
-
-            curr_layer = CenteredOutLayer(prev_tr_layer.output.flatten(2),
-                                          wts, centers,
-                                          rand_gen, prev_tr_layer.n_out,
-                                          **layers[ilayer][1])
-        else:
-            raise NotImplementedError("Unknown Layer of type : ",
-                                      layers[ilayer][0])
-
-        tr_layers.append(curr_layer)
-        te_layers.append(curr_layer.TestVersion(prev_te_layer.output.flatten(2)))
-        ilayer += 1
-
-        for tr_layer, te_layer in zip(tr_layers, te_layers):
+        for tr_layer, te_layer in zip(self.tr_layers, self.te_layers):
             if type(tr_layer) in (AuxConcatLayer, SoftAuxLayer):
                 assert not hasattr(self, 'aux_inpt_tr'), "Multiple Aux Inputs"
                 self.aux_inpt_tr = tr_layer.aux_inpt
                 self.aux_inpt_te = te_layer.aux_inpt
-
-        # Store variables that need to be persistent
-        self.tr_layers = tr_layers
-        self.te_layers = te_layers
-        self.num_layers = ilayer
-        self.tr_prms = training_params
-        self.layers = layers
-        self.x = x
-        self.y = y
-        self.test_x = test_x
-        self.batch_sz = batch_sz
 
         # Set Epoch and learning rate
         if 'CUR_EPOCH' not in training_params:
             training_params['CUR_EPOCH'] = 0
         self.cur_learn_rate = theano.shared(np.cast[theano.config.floatX](0.0))
         self.set_rate()
+
+    def append_next_layer(self):
+        layer_type, layer_args = self.layers[self.num_layers]
+        prev_tr_layer = self.tr_layers[self.num_layers - 1]
+        prev_te_layer = self.te_layers[self.num_layers - 1]
+        wts = self.allwts[self.num_layers] if self.allwts else None
+
+        tr_inpt = prev_tr_layer.output
+        te_inpt = prev_te_layer.output
+        curr_layer_type = getattr(layer, layer_type)
+
+        if layer_type in ("ConvLayer", "PoolLayer", "MeanLayer"):
+            if type(prev_tr_layer) is DropOutLayer:
+                use_tr_layer = self.tr_layers[self.num_layers - 2]
+            else:
+                use_tr_layer = prev_tr_layer
+            num_prev_maps = use_tr_layer.num_maps
+            prev_out_sz = use_tr_layer.out_sz
+
+        if layer_type == "ConvLayer":
+            curr_layer = ConvLayer(tr_inpt,
+                                   wts,
+                                   self.rand_gen,
+                                   self.batch_sz,
+                                   num_prev_maps,
+                                   prev_out_sz,
+                                   **layer_args)
+
+        elif layer_type in ('PoolLayer', 'MeanLayer'):
+            curr_layer = curr_layer_type(tr_inpt,
+                                         num_prev_maps,
+                                         prev_out_sz,
+                                         **layer_args)
+
+        elif layer_type == 'DropOutLayer':
+            curr_layer = DropOutLayer(tr_inpt,
+                                      self.rand_gen,
+                                      prev_tr_layer.n_out,
+                                      **layer_args)
+
+        elif layer_type in ('AuxConcatLayer', 'HiddenLayer',
+                            'SoftmaxLayer', 'SoftAuxLayer', 'SVMLayer'):
+            te_inpt = te_inpt.flatten(2)
+            curr_layer = curr_layer_type(tr_inpt.flatten(2),
+                                         wts,
+                                         self.rand_gen,
+                                         prev_tr_layer.n_out,
+                                         **layer_args)
+
+        elif layer_type == 'CenteredOutLayer':
+            """
+            CenteredOutLayer
+                Can be LOGIT or RBF
+                Needs Wts for hidden layer
+                (can be generated randomly as nPrevLayerUnits x nFeatures)
+                Needs CENTERS as a matrix or as a tuple
+                (nClasses x nFeatures) to convert from Features to Class probs.
+            """
+            if wts:
+                centers = wts[3]
+                wts = wts[:2]
+            else:
+                centers = None
+
+            te_inpt = te_inpt.flatten(2)
+            curr_layer = CenteredOutLayer(tr_inpt.flatten(2),
+                                          wts, centers,
+                                          self.rand_gen,
+                                          prev_tr_layer.n_out,
+                                          **layer_args)
+        else:
+            raise NotImplementedError("Unknown Layer Type" + layer_type)
+
+        self.tr_layers.append(curr_layer)
+        self.te_layers.append(curr_layer.TestVersion(te_inpt))
+        self.num_layers += 1
 
     def get_trin_model(self, x_data, y_data, aux_data=None):
         # cost, training params, gradients, updates to those params

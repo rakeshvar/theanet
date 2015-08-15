@@ -57,7 +57,7 @@ if len(sys.argv) < 4:
         Parameters for the NeuralNet
         - params_file.py  : contains the initialization code
         - params_file.pkl : pickled file from a previous run (has wts too).
-    out2file:
+    redirect:
         1 - redirect stdout to a <SEED>.txt file
     ''')
     sys.exit()
@@ -91,7 +91,7 @@ if (not 'SEED' in tr_prms) or (tr_prms['SEED'] is None):
     tr_prms['SEED'] = np.random.randint(0, 1e6)
 
 out_file_head = os.path.basename(prms_file_name,).replace(
-    os.path.splitext(prms_file_name)[1], "_" + str(tr_prms['SEED']))
+    os.path.splitext(prms_file_name)[1], "_{:06d}".format(tr_prms['SEED']))
 
 if sys.argv[-1] is '1':
     print("Printing output to {}.txt".format(out_file_head), file=sys.stderr)
@@ -116,6 +116,8 @@ print("\nLoading the data ...")
 sys.stdout.forceflush()
 data_x = read_json_bz2(imgs_file_name)
 data_y = read_json_bz2(lbls_file_name)
+if data_x.ndim == 3:
+    data_x = np.expand_dims(data_x, axis=1)
 
 print("X (samples, dimensions): {} {}KB\n"
       "X (min, max) : {} {}\n"
@@ -126,7 +128,7 @@ print("X (samples, dimensions): {} {}KB\n"
                                     data_y.min(), data_y.max()))
 
 batch_sz = tr_prms['BATCH_SZ']
-corpus_sz, layers[0][1]['img_sz'], _ = data_x.shape
+corpus_sz, _, layers[0][1]['img_sz'], _ = data_x.shape
 
 n_train = int(corpus_sz * tr_prms['TRAIN_ON_FRACTION'])
 
@@ -145,7 +147,7 @@ else:
 print("\nInitializing the net ... ")
 net = nn.NeuralNet(layers, tr_prms, allwts)
 print(net)
-print(net.get_wts_info().replace("\n\t", ""))
+print(net.get_wts_info(detailed=True).replace("\n\t", ""))
 
 print("\nCompiling ... ")
 training_fn = net.get_trin_model(trin_x, trin_y, trin_aux)
@@ -221,13 +223,15 @@ for epoch in range(nEpochs):
 
         if np.isnan(total_cost):
             print("Epoch:{} Iteration:{}".format(epoch, ibatch))
-            print(net.get_wts_info(True))
+            print(net.get_wts_info(detailed=True))
             raise ZeroDivisionError("Nan cost at Epoch:{} Iteration:{}"
                                     "".format(epoch, ibatch))
 
     if epoch % tr_prms['EPOCHS_TO_TEST'] == 0:
         print("{:3d} {:>8.2f}".format(net.get_epoch(), total_cost), end='    ')
         do_test()
+        if  total_cost > 1e6:
+            print(net.get_wts_info(detailed=True))
 
     net.inc_epoch_set_rate()
 
