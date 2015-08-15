@@ -91,7 +91,7 @@ class SoftmaxLayer(HiddenLayer, OutputLayer):
     def TestVersion(self, inpt):
         return SoftmaxLayer(inpt, (self.w, self.b))
 
-class SVMLayer(HiddenLayer, OutputLayer):
+class HingeLayer(HiddenLayer, OutputLayer):
     def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None,
                  reg=(),
                  loss="hinge"):
@@ -110,7 +110,7 @@ class SVMLayer(HiddenLayer, OutputLayer):
                                    self.loss, **self.reg)
 
     def TestVersion(self, inpt):
-        return SVMLayer(inpt, (self.w, self.b))
+        return HingeLayer(inpt, (self.w, self.b))
 
 activs = {'LOGIT': 'sigmoid', 'RBF': 'scaled_tanh'}
 

@@ -10,7 +10,7 @@ float_x = th.config.floatX
 
 
 class InputLayer(Layer):
-    def __init__(self, inpt, img_sz, num_maps=1):
+    def __init__(self, inpt, img_sz, num_maps=1, rand_gen=None):
         self.params = []
         self.inpt = inpt
         self.out_sz = img_sz

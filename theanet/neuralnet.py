@@ -3,15 +3,15 @@ import theano
 import theano.tensor as tt
 
 from . import layer
-from .layer import InputLayer, ElasticLayer
+from .layer import InputLayer, ElasticLayer, ColorLayer
 from .layer import ConvLayer, PoolLayer, MeanLayer, DropOutLayer
 from .layer import HiddenLayer, AuxConcatLayer
-from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer
+from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer, HingeLayer
 
 # theano.config.optimizer = 'fast_compile'
 # theano.config.exception_verbosity = "high"
 
-############################ Helper Functions #################################
+# ########################### Helper Functions #################################
 from functools import reduce
 from operator import mul
 
@@ -79,17 +79,20 @@ class NeuralNet():
         self.y = tt.ivector('y')
 
         # Input Layer
-        assert layers[0][0] in ('InputLayer', 'ElasticLayer'), \
-            "First layer needs to be Input or Elastic Distorition Layer"
-
         input_layer_type = getattr(layer, layers[0][0])
-        self.tr_layers.append(input_layer_type(self.x, **layers[0][1]))
+        assert input_layer_type in (InputLayer, ElasticLayer, ColorLayer), \
+            "First layer needs to be Input or Elastic or Color Layer"
+
+        self.tr_layers.append(input_layer_type(self.x, rand_gen=self.rand_gen,
+                                               **layers[0][1]))
         self.te_layers.append(self.tr_layers[0].TestVersion(self.test_x))
         self.num_layers += 1
 
+        # Rest of the layers
         while self.num_layers < len(layers):
             self.append_next_layer()
 
+        # Handle Auxiliary input
         for tr_layer, te_layer in zip(self.tr_layers, self.te_layers):
             if type(tr_layer) in (AuxConcatLayer, SoftAuxLayer):
                 assert not hasattr(self, 'aux_inpt_tr'), "Multiple Aux Inputs"
@@ -111,8 +114,10 @@ class NeuralNet():
         tr_inpt = prev_tr_layer.output
         te_inpt = prev_te_layer.output
         curr_layer_type = getattr(layer, layer_type)
+        print(layer_type)
 
-        if layer_type in ("ConvLayer", "PoolLayer", "MeanLayer"):
+        if curr_layer_type in (ElasticLayer, ColorLayer,
+                               ConvLayer, PoolLayer, MeanLayer):
             if type(prev_tr_layer) is DropOutLayer:
                 use_tr_layer = self.tr_layers[self.num_layers - 2]
             else:
@@ -120,7 +125,19 @@ class NeuralNet():
             num_prev_maps = use_tr_layer.num_maps
             prev_out_sz = use_tr_layer.out_sz
 
-        if layer_type == "ConvLayer":
+        if curr_layer_type in (ElasticLayer, ColorLayer):
+            if "num_maps" in layer_args:
+                del layer_args["num_maps"]
+            if "img_sz" in layer_args:
+                del layer_args["img_sz"]
+
+            curr_layer = curr_layer_type(tr_inpt,
+                                         num_maps=num_prev_maps,
+                                         img_sz=prev_out_sz,
+                                         rand_gen=self.rand_gen,
+                                         **layer_args)
+
+        elif curr_layer_type is ConvLayer:
             curr_layer = ConvLayer(tr_inpt,
                                    wts,
                                    self.rand_gen,
@@ -129,20 +146,20 @@ class NeuralNet():
                                    prev_out_sz,
                                    **layer_args)
 
-        elif layer_type in ('PoolLayer', 'MeanLayer'):
+        elif curr_layer_type in (PoolLayer, MeanLayer):
             curr_layer = curr_layer_type(tr_inpt,
-                                         num_prev_maps,
-                                         prev_out_sz,
+                                         num_maps=num_prev_maps,
+                                         in_sz=prev_out_sz,
                                          **layer_args)
 
-        elif layer_type == 'DropOutLayer':
+        elif curr_layer_type is DropOutLayer:
             curr_layer = DropOutLayer(tr_inpt,
                                       self.rand_gen,
                                       prev_tr_layer.n_out,
                                       **layer_args)
 
-        elif layer_type in ('AuxConcatLayer', 'HiddenLayer',
-                            'SoftmaxLayer', 'SoftAuxLayer', 'SVMLayer'):
+        elif curr_layer_type in (AuxConcatLayer, HiddenLayer,
+                                 SoftmaxLayer, SoftAuxLayer, HingeLayer):
             te_inpt = te_inpt.flatten(2)
             curr_layer = curr_layer_type(tr_inpt.flatten(2),
                                          wts,
@@ -150,7 +167,7 @@ class NeuralNet():
                                          prev_tr_layer.n_out,
                                          **layer_args)
 
-        elif layer_type == 'CenteredOutLayer':
+        elif curr_layer_type is CenteredOutLayer:
             """
             CenteredOutLayer
                 Can be LOGIT or RBF
@@ -194,12 +211,13 @@ class NeuralNet():
         bth_sz = self.tr_prms['BATCH_SZ']
 
         givens = {
-            self.x: x_data[indx*bth_sz:(indx+1)*bth_sz],
-            self.y: y_data[indx*bth_sz:(indx+1)*bth_sz], }
+            self.x: x_data[indx * bth_sz:(indx + 1) * bth_sz],
+            self.y: y_data[indx * bth_sz:(indx + 1) * bth_sz], }
 
         if hasattr(self, 'aux_inpt_tr'):
             assert aux_data is not None, "Auxillary data not supplied"
-            givens[self.aux_inpt_tr] = aux_data[indx*bth_sz:(indx+1)*bth_sz]
+            givens[self.aux_inpt_tr] = aux_data[
+                                       indx * bth_sz:(indx + 1) * bth_sz]
 
         return theano.function([indx],
                                [cost,
@@ -214,13 +232,13 @@ class NeuralNet():
         bth_sz = self.tr_prms['BATCH_SZ']
 
         givens = {
-            self.test_x: x_data[idx*bth_sz:(idx+1)*bth_sz],
-            self.y: y_data[idx*bth_sz:(idx+1)*bth_sz]}
+            self.test_x: x_data[idx * bth_sz:(idx + 1) * bth_sz],
+            self.y: y_data[idx * bth_sz:(idx + 1) * bth_sz]}
 
         if hasattr(self, 'aux_inpt_te'):
             assert aux_data is not None, "Auxillary data not supplied"
             givens[self.aux_inpt_te] = \
-                aux_data[idx*bth_sz:(idx+1)*bth_sz]
+                aux_data[idx * bth_sz:(idx + 1) * bth_sz]
 
         outputs = self.te_layers[-1].sym_and_oth_err_rate(self.y)
         if preds_feats:
@@ -255,8 +273,8 @@ class NeuralNet():
     def set_rate(self):
         self.cur_learn_rate.set_value(
             self.tr_prms['INIT_LEARNING_RATE'] /
-                (1 + self.tr_prms['CUR_EPOCH'] /
-                         self.tr_prms['EPOCHS_TO_HALF_RATE']))
+            (1 + self.tr_prms['CUR_EPOCH'] /
+             self.tr_prms['EPOCHS_TO_HALF_RATE']))
 
     def inc_epoch_set_rate(self):
         self.tr_prms['CUR_EPOCH'] += 1
