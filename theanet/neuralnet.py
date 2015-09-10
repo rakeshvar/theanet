@@ -114,7 +114,6 @@ class NeuralNet():
         tr_inpt = prev_tr_layer.output
         te_inpt = prev_te_layer.output
         curr_layer_type = getattr(layer, layer_type)
-        print(layer_type)
 
         if curr_layer_type in (ElasticLayer, ColorLayer,
                                ConvLayer, PoolLayer, MeanLayer):
@@ -195,7 +194,8 @@ class NeuralNet():
         self.te_layers.append(curr_layer.TestVersion(te_inpt))
         self.num_layers += 1
 
-    def get_trin_model(self, x_data, y_data, aux_data=None):
+    def get_trin_model(self, x_data, y_data, aux_data=None,
+                       take_index_list=False):
         # cost, training params, gradients, updates to those params
         print('Compiling training function...')
 
@@ -207,17 +207,25 @@ class NeuralNet():
         for lyr in self.tr_layers:
             updates += lyr.get_updates(cost, self.cur_learn_rate)
 
-        indx = tt.lscalar('training batch index')
-        bth_sz = self.tr_prms['BATCH_SZ']
-
-        givens = {
-            self.x: x_data[indx * bth_sz:(indx + 1) * bth_sz],
-            self.y: y_data[indx * bth_sz:(indx + 1) * bth_sz], }
-
         if hasattr(self, 'aux_inpt_tr'):
             assert aux_data is not None, "Auxillary data not supplied"
-            givens[self.aux_inpt_tr] = aux_data[
-                                       indx * bth_sz:(indx + 1) * bth_sz]
+
+        if not take_index_list:
+            indx = tt.lscalar('training batch index')
+            bsz = self.tr_prms['BATCH_SZ']
+            givens = {
+                self.x: x_data[indx * bsz:(indx + 1) * bsz],
+                self.y: y_data[indx * bsz:(indx + 1) * bsz], }
+            if hasattr(self, 'aux_inpt_tr'):
+                givens[self.aux_inpt_tr] = aux_data[indx * bsz:(indx + 1) * bsz]
+
+        else:
+            indx = tt.ivector('training batch indices')
+            givens = {
+                self.x: x_data[indx],
+                self.y: y_data[indx], }
+            if hasattr(self, 'aux_inpt_tr'):
+                givens[self.aux_inpt_tr] = aux_data[indx]
 
         return theano.function([indx],
                                [cost,

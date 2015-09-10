@@ -50,6 +50,7 @@ def init_wb(wb, rand_gen,
     if wb is None:
         if len(size_w) == 4:
             w_values = 2. * rand_gen.randint(2, size=size_w) - 1
+            #w_values = rand_gen.uniform(low=-1, high=1, size=size_w)
             w_values /= np.sqrt(fan_in)
         else:
             w_values = rand_gen.uniform(low=-1, high=1, size=size_w)

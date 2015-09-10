@@ -4,6 +4,7 @@ import ast
 import pickle
 import numpy as np
 import os
+import socket
 import sys
 import bz2
 import json
@@ -104,8 +105,9 @@ else:
 
 print(' '.join(sys.argv), file=sys.stderr)
 print(' '.join(sys.argv))
-print('Time   : ' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+print('Time   :' + datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 print('Device : {} ({})'.format(th.config.device, th.config.floatX))
+print('Host   :', socket.gethostname())
 
 print(nn.get_layers_info(layers))
 print(nn.get_training_params_info(tr_prms))
