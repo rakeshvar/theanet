@@ -234,6 +234,20 @@ class NeuralNet():
                                updates=updates,
                                givens=givens)
 
+    def reset_accumulated_gradients(self):
+        if not hasattr(self, "accumulated_gradients_resetter"):
+            accumulated_updates = []
+            for lyr in self.tr_layers:
+                for au in lyr.accumulated_updates:
+                    #au.set_value(0*au.get_value())
+                    accumulated_updates.append((au, 0*au))
+
+            print("Compiling accumulated_gradients_resetter")
+            self.accumulated_gradients_resetter = theano.function([],
+                updates=accumulated_updates)
+
+        self.accumulated_gradients_resetter()
+
     def get_test_model(self, x_data, y_data, aux_data=None, preds_feats=False):
         print('Compiling testing function... ')
         idx = tt.lscalar('test batch index')

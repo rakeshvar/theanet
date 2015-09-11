@@ -52,9 +52,9 @@ class ElasticLayer(Layer):
         self.n_out = self.num_maps * self.out_sz ** 2
         self.params = []
         self.representation = ('Elastic Maps:{:d} Size:{:2d} Translation:{:} '
-                               'Zoom:{} Mag:{:2d} Sig:{:2d} Noise:{} '
+                               'Zoom:{} Mag:{:d} Sig:{:d} Noise:{} '
                                'Angle:{} Invert:{} '
-                               'Interpolation: {}'.format(
+                               'Interpolation:{}'.format(
             self.num_maps, img_sz,
             translation, zoom, magnitude, sigma,
             pflip, angle, invert_image,

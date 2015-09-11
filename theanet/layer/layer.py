@@ -65,21 +65,22 @@ class Layer():
         return [borrow(p) for p in self.params]
 
     def get_updates(self, cost, rate):
-        if not hasattr(self, "reg"):
-            return []
+        self.updates = []    # tuples
+        self.accumulated_updates = []
 
-        if not self.reg['rate']:
-            return []
+        if not hasattr(self, "reg") or not self.reg['rate']:
+            return self.updates
 
-        updates = []
         for param in self.params:
-            update = th.shared(borrow(param) * 0.,
+            accum_update = th.shared(borrow(param) * 0.,
                                broadcastable=param.broadcastable)
-            updated_update = self.reg['momentum'] * update + \
-                             (1. - self.reg['momentum']) * tt.grad(cost, param)
-            updates.append((update, updated_update))
+            self.accumulated_updates.append(accum_update)
 
-            updated_param = param - self.reg['rate'] * rate * update
+            curr_update = self.reg['momentum'] * accum_update + \
+                             (1. - self.reg['momentum']) * tt.grad(cost, param)
+            self.updates.append((accum_update, curr_update))
+
+            updated_param = param - self.reg['rate'] * rate * accum_update
 
             maxnorm = self.reg['maxnorm']
             if maxnorm:
@@ -96,11 +97,11 @@ class Layer():
                     ker_norms = tt.sqrt(tt.sum(tt.sqr(updated_param), axis=(1, 2, 3)))
                     desired_norms = tt.clip(ker_norms, 0, maxnorm)
                     scale = (1e-7 + desired_norms) / (1e-7 + ker_norms)
-                    updated_param *= scale.dimshuffle(0,'x','x','x')
+                    updated_param *= scale.dimshuffle(0, 'x', 'x', 'x')
 
-            updates.append((param, updated_param))
+            self.updates.append((param, updated_param))
 
-        return updates
+        return self.updates
 
     def get_wtcost(self):
         try:
