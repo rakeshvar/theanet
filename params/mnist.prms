@@ -43,11 +43,11 @@
     #'SEED' : 555555,
     'BATCH_SZ'   :20,
     'NUM_EPOCHS' : 101,
-    'TRAIN_ON_FRACTION' : .75,
+
     'EPOCHS_TO_TEST' : 1,
-    'TEST_SAMP_SZ': 1000,
+    'TEST_SAMP_SZ': 10000,
 
     'INIT_LEARNING_RATE': .1,
-    'EPOCHS_TO_HALF_RATE':  12,
+    'EPOCHS_TO_HALF_RATE':  1,
 },
 }
