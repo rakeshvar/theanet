@@ -6,8 +6,7 @@ import numpy as np
 import os
 import socket
 import sys
-import bz2
-import json
+import importlib
 from datetime import datetime
 
 import theano as th
@@ -16,15 +15,23 @@ import theanet.neuralnet as nn
 ################################ HELPER FUNCTIONS ############################
 
 
-def read_json_bz2(path2data):
-    bz2_fp = bz2.BZ2File(path2data, 'r')
-    data = np.array(json.loads(bz2_fp.read().decode('utf-8')))
-    bz2_fp.close()
-    return data
-
-
 def share(data, dtype=th.config.floatX, borrow=True):
     return th.shared(np.asarray(data, dtype), borrow=borrow)
+
+
+def fixdim(arr):
+    if arr.ndim == 2:
+        side = int(arr.shape[-1] ** .5)
+        assert side**2 == arr.shape[-1], "Need a perfect square"
+        return arr.reshape((arr.shape[0], 1, side, side))
+
+    if arr.ndim == 3:
+        return np.expand_dims(arr, axis=1)
+
+    if arr.ndim == 4:
+        return arr
+
+    raise ValueError("Image data arrays must have 2,3 or 4 dimensions only")
 
 
 class WrapOut:
@@ -49,27 +56,23 @@ class WrapOut:
 
 ################################### MAIN CODE ################################
 
-if len(sys.argv) < 4:
+if len(sys.argv) < 3:
     print('Usage:', sys.argv[0],
-          ''' <x.bz2> <y.bz2> <params_file(s)> [auxillary.bz2] [redirect=0]
-    .bz2 files contain the samples and the output classes as generated
-        by the gen_cnn_data.py script (or the like).
+          ''' <dataset> <params_file(s)> [redirect=0]
+    dataset:
+        Should be the name of a module in the data folder.
+        Like "mnist", "telugu_ocr", "numbers" etc.
     params_file(s) :
         Parameters for the NeuralNet
-        - params_file.py  : contains the initialization code
-        - params_file.pkl : pickled file from a previous run (has wts too).
+        - name.prms : contains the initialization code
+        - name.pkl  : pickled file from a previous run (has wts too).
     redirect:
-        1 - redirect stdout to a <SEED>.txt file
+        1 - redirect stdout to a params_<SEED>.txt file
     ''')
     sys.exit()
 
-imgs_file_name = sys.argv[1]
-lbls_file_name = sys.argv[2]
-prms_file_name = sys.argv[3]
-if len(sys.argv) > 4 and sys.argv[4].endswith('.bz2'):
-    aux_file_name = sys.argv[4]
-else:
-    aux_file_name = None
+dataset_name = sys.argv[1]
+prms_file_name = sys.argv[2]
 
 ##########################################  Import Parameters
 
@@ -113,37 +116,22 @@ print(nn.get_layers_info(layers))
 print(nn.get_training_params_info(tr_prms))
 
 ##########################################  Load Data
+data = importlib.import_module("data." + dataset_name)
 
-print("\nLoading the data ...")
-sys.stdout.forceflush()
-data_x = read_json_bz2(imgs_file_name)
-data_y = read_json_bz2(lbls_file_name)
-if data_x.ndim == 3:
-    data_x = np.expand_dims(data_x, axis=1)
+tr_corpus_sz, n_maps, _, layers[0][1]['img_sz'] = data.training_x.shape
+te_corpus_sz = data.testing_x.shape[0]
+data.training_x = fixdim(data.training_x)
+data.testing_x = fixdim(data.testing_x)
 
-print("X (samples, dimensions): {} {}KB\n"
-      "X (min, max) : {} {}\n"
-      "Y (samples, dimensions): {} {}KB\n"
-      "Y (min, max) : {} {}".format(data_x.shape, data_x.nbytes // 1000,
-                                    data_x.min(), data_x.max(),
-                                    data_y.shape, data_y.nbytes // 1000,
-                                    data_y.min(), data_y.max()))
+trin_x = share(data.training_x)
+test_x = share(data.testing_x)
+trin_y = share(data.training_y, 'int32')
+test_y = share(data.testing_y, 'int32')
 
-batch_sz = tr_prms['BATCH_SZ']
-corpus_sz, _, layers[0][1]['img_sz'], _ = data_x.shape
-
-n_train = int(corpus_sz * tr_prms['TRAIN_ON_FRACTION'])
-
-trin_x = share(data_x[:n_train, ])
-test_x = share(data_x[n_train:, ])
-trin_y = share(data_y[:n_train, ], 'int32')
-test_y = share(data_y[n_train:, ], 'int32')
-
-if aux_file_name:
-    data_aux = read_json_bz2(aux_file_name)
-    trin_aux = share(data_aux[:n_train, ])
-    test_aux = share(data_aux[n_train:, ])
-else:
+try:
+    trin_aux = share(data.training_aux)
+    test_aux = share(data.testing_aux)
+except AttributeError:
     trin_aux, test_aux = None, None
 
 print("\nInitializing the net ... ")
@@ -156,8 +144,7 @@ training_fn = net.get_trin_model(trin_x, trin_y, trin_aux)
 test_fn_tr = net.get_test_model(trin_x, trin_y, trin_aux)
 test_fn_te = net.get_test_model(test_x, test_y, test_aux)
 
-tr_corpus_sz = n_train
-te_corpus_sz = corpus_sz - n_train
+batch_sz = tr_prms['BATCH_SZ']
 nEpochs = tr_prms['NUM_EPOCHS']
 nTrBatches = tr_corpus_sz // batch_sz
 nTeBatches = te_corpus_sz // batch_sz
