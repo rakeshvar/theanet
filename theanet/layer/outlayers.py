@@ -44,7 +44,7 @@ class OutputLayer(object):
     def neg_log_likli(self, y):
         return -tt.mean(self.logprob[tt.arange(y.shape[0]), y])
 
-    def hinge(self, y):
+    def hinge_max(self, y):
         print("Using Hinge Loss!!!")
         def step(out, y_):
             return tt.maximum(0, 1 +
@@ -52,6 +52,10 @@ class OutputLayer(object):
 
         losses, _ = th.scan(step, sequences=[self.output, y])
         return tt.mean(losses)
+
+    def hinge(self, y):
+        return tt.mean(tt.maximum(0, self.output + 1 -
+                self.output[tt.arange(y.shape[0]), y].dimshuffle(0, 'x')))
 
     def features_and_predictions(self):
         return self.features, self.y_preds
@@ -104,7 +108,7 @@ class HingeLayer(HiddenLayer, OutputLayer):
         self.features = self.logprob
         self.kind = 'SVM'
         self.loss = loss
-        self.representation = "SVM In:{:3d} Out:{:3d} Loss:{}" \
+        self.representation = "Hinge In:{:3d} Out:{:3d} Loss:{}" \
             "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
             "Rate:{rate}""".format(self.n_in, self.n_out,
                                    self.loss, **self.reg)
