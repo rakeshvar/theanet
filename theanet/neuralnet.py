@@ -279,17 +279,15 @@ class NeuralNet():
     def takes_aux(self):
         return hasattr(self, 'aux_inpt_te')
 
-    def get_data_test_model(self, go_nuts=False):
+    def get_data_test_model(self, get_output_of_layers=()):
         print('Compiling full test function...')
         inputs = [self.test_x]
         if self.takes_aux():
             inputs += [self.aux_inpt_te]
 
         outputs = list(self.te_layers[-1].features_and_predictions())
-        if go_nuts:
-            print("going nuts...")
-            for lyr in self.te_layers:
-                outputs.append(lyr.output)
+        for index in get_output_of_layers:
+            outputs.append(self.te_layers[index].output)
 
         return theano.function(inputs, outputs)
 
