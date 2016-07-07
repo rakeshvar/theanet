@@ -44,8 +44,9 @@ def activation_by_name(name):
     :param name: string
     :return: Callable Activation
     """
-    if name == "Softmax":
+    if name in ("Softmax", "softmax"):
         return tt.nnet.softmax
+
     for act in activation_list:
         if name == str(act):
             return act
