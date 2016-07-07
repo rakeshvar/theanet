@@ -6,7 +6,8 @@ from . import layer
 from .layer import InputLayer, ElasticLayer, ColorLayer
 from .layer import ConvLayer, PoolLayer, MeanLayer, DropOutLayer
 from .layer import HiddenLayer, AuxConcatLayer
-from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer, HingeLayer
+from .layer import SoftmaxLayer, CenteredOutLayer, SoftAuxLayer
+from .layer import HingeLayer, ExpLossLayer
 
 # theano.config.optimizer = 'fast_compile'
 # theano.config.exception_verbosity = "high"
@@ -56,7 +57,8 @@ def get_training_params_info(training_params):
 
 
 class NeuralNet():
-    def __init__(self, layers, training_params, allwts=None):
+    def __init__(self, layers, training_params, allwts=None,
+                 test_x=None):
 
         # Either we have a random seed or the WTS for each layer from a
         # previously trained NeuralNet
@@ -75,8 +77,11 @@ class NeuralNet():
 
         # Symbolic variables for the data
         self.x = tt.tensor4('x')
-        self.test_x = tt.tensor4('test_x')
         self.y = tt.ivector('y')
+        if test_x is None:
+            self.test_x = tt.tensor4('test_x')
+        else:
+            self.test_x = test_x
 
         # Input Layer
         input_layer_type = getattr(layer, layers[0][0])
@@ -158,7 +163,8 @@ class NeuralNet():
                                       **layer_args)
 
         elif curr_layer_type in (AuxConcatLayer, HiddenLayer,
-                                 SoftmaxLayer, SoftAuxLayer, HingeLayer):
+                                 SoftmaxLayer, SoftAuxLayer,
+                                 HingeLayer, ExpLossLayer):
             te_inpt = te_inpt.flatten(2)
             curr_layer = curr_layer_type(tr_inpt.flatten(2),
                                          wts,

@@ -14,7 +14,7 @@
             'num_maps'      :4,
             'filter_sz'     :3,
             'stride'        :1,
-            'actvn'         :"relu50",
+            'actvn'         :"relu10",
             }),
         ('PoolLayer', {
             'pool_sz'       :2,
@@ -23,7 +23,7 @@
             'num_maps'      :20,
             'filter_sz'     :3,
             'stride'        :1,
-            'actvn'         :"relu10",
+            'actvn'         :"relu05",
             }),
         ('PoolLayer', {
             'pool_sz'       :2,
@@ -31,11 +31,11 @@
         ('HiddenLayer', {
             'n_out'         :500,
             'pdrop'         :.5,
-            'reg'           : {'L2':.001, 'maxnorm':0},
+            'reg'           : {'L2':.0, 'maxnorm':0},
             }),
         ('SoftmaxLayer', {
             'n_out'         :10,
-            'reg'           : {'L2':.001, 'maxnorm':0},
+            'reg'           : {'L2':.0, 'maxnorm':0},
             }),
 ],
 

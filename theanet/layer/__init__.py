@@ -3,5 +3,5 @@ from .color import ColorLayer
 from .convpool import ConvLayer, PoolLayer, MeanLayer
 from .hidden import HiddenLayer
 from .dropout import DropOutLayer
-from .outlayers import SoftmaxLayer, CenteredOutLayer, HingeLayer
+from .outlayers import SoftmaxLayer, CenteredOutLayer, HingeLayer, ExpLossLayer
 from .auxiliary import SoftAuxLayer, AuxConcatLayer

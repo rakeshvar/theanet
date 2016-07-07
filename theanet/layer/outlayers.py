@@ -29,8 +29,14 @@ class OutputLayer(object):
         elif self.loss == "hinge":
             return self.hinge(y)
 
+        elif self.loss == "exp":
+            return self.exp(y)
+
         else:
             raise NotImplementedError("Loss : " + self.loss)
+
+    def exp(self, y):
+        return tt.mean(tt.exp(-self.output[tt.arange(y.shape[0]), y]))
 
     def neg_log_likli_sq(self, y):
         return tt.mean(self.logprob[tt.arange(y.shape[0]), y]**2)
@@ -44,7 +50,7 @@ class OutputLayer(object):
     def neg_log_likli(self, y):
         return -tt.mean(self.logprob[tt.arange(y.shape[0]), y])
 
-    def hinge(self, y):
+    def hinge_max(self, y):
         print("Using Hinge Loss!!!")
         def step(out, y_):
             return tt.maximum(0, 1 +
@@ -52,6 +58,10 @@ class OutputLayer(object):
 
         losses, _ = th.scan(step, sequences=[self.output, y])
         return tt.mean(losses)
+
+    def hinge(self, y):
+        return tt.mean(tt.maximum(0, self.output + 1 -
+                self.output[tt.arange(y.shape[0]), y].dimshuffle(0, 'x')))
 
     def features_and_predictions(self):
         return self.features, self.y_preds
@@ -89,12 +99,36 @@ class SoftmaxLayer(HiddenLayer, OutputLayer):
                                    self.loss, **self.reg)
 
     def TestVersion(self, inpt):
-        return SoftmaxLayer(inpt, (self.w, self.b))
+        return SoftmaxLayer(inpt, (self.w, self.b), loss=None)
+
+
+class ExpLossLayer(HiddenLayer, OutputLayer):
+    def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None,
+                 reg=()):
+        HiddenLayer.__init__(self, inpt, wts, rand_gen, n_in, n_out,
+                             actvn='linear', reg=reg,
+                             pdrop=0)
+        self.y_preds = tt.argmax(self.output, axis=1)
+        self.output -= tt.mean(self.output, axis=1).dimshuffle(0, 'x')
+        #self.output /= self.n_out - 1
+
+        self.probs = tt.nnet.softmax(self.output)
+        self.logprob = tt.log(self.probs)
+        self.features = self.output
+        self.kind = 'ExpLoss'
+        self.loss = 'exp'
+        self.representation = "ExpLoss In:{:3d} Out:{:3d} Loss:{}" \
+            "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
+            "Rate:{rate}""".format(self.n_in, self.n_out,
+                                   self.loss, **self.reg)
+
+    def TestVersion(self, inpt):
+        return ExpLossLayer(inpt, (self.w, self.b))
+
 
 class HingeLayer(HiddenLayer, OutputLayer):
     def __init__(self, inpt, wts, rand_gen=None, n_in=None, n_out=None,
-                 reg=(),
-                 loss="hinge"):
+                 reg=()):
         HiddenLayer.__init__(self, inpt, wts, rand_gen, n_in, n_out,
                              actvn='linear', reg=reg,
                              pdrop=0)
@@ -102,8 +136,8 @@ class HingeLayer(HiddenLayer, OutputLayer):
         self.logprob = self.output
         self.probs = self.output # tt.nnet.softmax(self.output)
         self.features = self.logprob
-        self.kind = 'SVM'
-        self.loss = loss
+        self.kind = 'Hinge'
+        self.loss = 'hinge'
         self.representation = "SVM In:{:3d} Out:{:3d} Loss:{}" \
             "\n\t  L1:{L1} L2:{L2} Momentum:{momentum} Max Norm:{maxnorm} " \
             "Rate:{rate}""".format(self.n_in, self.n_out,
@@ -111,6 +145,7 @@ class HingeLayer(HiddenLayer, OutputLayer):
 
     def TestVersion(self, inpt):
         return HingeLayer(inpt, (self.w, self.b))
+
 
 activs = {'LOGIT': 'sigmoid', 'RBF': 'scaled_tanh'}
 

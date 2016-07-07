@@ -200,6 +200,7 @@ def do_test():
         pickle.dump(net.get_init_params(), pkl_file, -1)
 
 ############################################ Training Loop
+np.set_printoptions(precision=2)
 
 print("Training ...")
 print("Epoch   Cost  Tr_Error Tr_{0}    Te_Error Te_{0}".format(aux_err_name))
@@ -207,8 +208,16 @@ for epoch in range(nEpochs):
     total_cost = 0
 
     for ibatch in range(nTrBatches):
-        output = training_fn(ibatch)
-        total_cost += output[0]
+        cost, features, logprobs = training_fn(ibatch)
+        total_cost += cost
+
+        labels = data.training_y[ibatch*batch_sz:(ibatch+1)*batch_sz]
+        true_features = features[np.arange(batch_sz), labels]
+        if np.min(true_features) < -6 and layers[-1][0][:3] == "Exp":
+            print("Epoch:{} Iteration:{}".format(epoch, ibatch))
+            print(labels)
+            print(true_features)
+            print(net.get_wts_info(detailed=True))
 
         if np.isnan(total_cost):
             print("Epoch:{} Iteration:{}".format(epoch, ibatch))
