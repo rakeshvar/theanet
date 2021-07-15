@@ -1,9 +1,8 @@
-import numpy as np
 import math
 import theano as th
 import theano.tensor as tt
 import theano.tensor.nnet.conv as nnconv
-from theano.tensor.signal import downsample
+from theano.tensor.signal import pool
 from .layer import Layer, activation_by_name
 
 from .weights import init_wb
@@ -104,7 +103,7 @@ class PoolLayer(Layer):
         :param ignore_border: When True, (5,5) input with ds=(2,2)
             will generate a (2,2) output. (3,3) otherwise.
         """
-        self.output = downsample.max_pool_2d(inpt, (pool_sz, pool_sz),
+        self.output = pool.pool_2d(inpt, (pool_sz, pool_sz),
                                              ignore_border=ignore_border)
 
         if ignore_border:
