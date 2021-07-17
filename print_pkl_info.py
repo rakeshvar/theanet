@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import sys
-import pprint
+
 
 def wts_info(wb):
     ret, tot_wts = "", 0
@@ -10,7 +10,7 @@ def wts_info(wb):
         tot_wts += n_wts
         n_in = np.prod(w.shape[1:])
 
-        ret += "\n    " + "WB"[n_in==1]
+        ret += "\n    " + "WB"[n_in == 1]
         ret += "\n\tShape:{} = {:,}".format(w.shape, n_wts)
         ret += "\n\tMin={:+.2f} Avg={:.2f} Max={:+.2f}".format(
             w.min(), w.mean(), w.max())
@@ -27,6 +27,7 @@ def wts_info(wb):
 
     return ret, tot_wts
 
+
 def all_info(d):
     tot_wts = 0
     for i, (layer, wb) in enumerate(zip(d["layers"], d['allwts'])):
@@ -42,7 +43,7 @@ def all_info(d):
 
 for pkl_fname in sys.argv[1:]:
     with open(pkl_fname, 'rb') as f:
-        d = pickle.load(f)
+        data = pickle.load(f)
 
     print(pkl_fname)
-    all_info(d)
+    all_info(data)

@@ -1,7 +1,7 @@
 import math
 import theano as th
 import theano.tensor as tt
-import theano.tensor.nnet.conv as nnconv
+import theano.tensor.nnet as nnconv
 from theano.tensor.signal import pool
 from .layer import Layer, activation_by_name
 
