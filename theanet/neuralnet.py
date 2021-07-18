@@ -281,6 +281,10 @@ class NeuralNet():
 
     def get_data_test_model(self, get_output_of_layers=()):
         print('Compiling full test function...')
+        if self.tr_prms['BATCH_SZ'] != 1:
+            print("\n****WARNING****: BATCH SIZE IS NOT 1. "
+                  "WILL BE EXPECTING A BATCH OF INPUT IMAGES AT A TIME.\n")
+
         inputs = [self.test_x]
         if self.takes_aux():
             inputs += [self.aux_inpt_te]
